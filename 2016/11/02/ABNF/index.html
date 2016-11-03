@@ -1,0 +1,95 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="author" content="Lucifer"><meta name="description" content="ABNF英文全称是AugmentedBackus-NaurForm，这是一种基于BNF的元语言，在很多的InternettechnicalSpecification中用于定义正式语法。1规则定义1.1规则形式规则定义的形式如下所示name=elements"><meta name="keywords" content=""><title>ABNF应知应会 · 羽逝神伤</title><link rel="icon" href="/favicon.ico"><link rel="canonical" href="https://lukaicheng.github.io/2016/11/02/ABNF/"><link rel="alternate" href="/atom.xml" title="羽逝神伤"><link rel="stylesheet" href="/fonts/iconfont/iconfont.css"><link rel="stylesheet" href="/css/style.css"><script type="text/javascript">var _hmt = _hmt || [];
+(function() {
+  var hm = document.createElement("script");
+  hm.src = "//hm.baidu.com/hm.js?Your baidu Analytics ID";
+  var s = document.getElementsByTagName("script")[0]; 
+  s.parentNode.insertBefore(hm, s);
+})();
+</script><script type="text/javascript">(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+(i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+})(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+ga('create', 'Your Google Analytics ID', 'auto');
+ga('send', 'pageview');</script></head><body><div id="main"><header><a href="/." class="logo">羽逝神伤</a><ul class="nav"><li class="nav-link"><a href="/" target="_self">Home</a></li><li class="nav-link"><a href="/archives/" target="_self">Archives</a></li><li class="nav-link"><a href="/tags/" target="_self">Tags</a></li></ul></header><section id="container"><article class="post"><h1 class="post-title">ABNF应知应会</h1><span class="post-time">Nov 2, 2016</span><div id="sidebar" class="post-sidebar"><h3 class="heading">Contents</h3><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#1-规则定义"><span class="toc-text">1 规则定义</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#1-1-规则形式"><span class="toc-text">1.1 规则形式</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#1-2-规则名称"><span class="toc-text">1.2 规则名称</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#1-3-最终值"><span class="toc-text">1.3 最终值</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#2-操作"><span class="toc-text">2.操作</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#2-1-级联-R1-R2"><span class="toc-text">2.1 级联 R1 R2</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-2-选择-R1-R2"><span class="toc-text">2.2 选择 R1 / R2</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-3-增量选择-R1-R2"><span class="toc-text">2.3 增量选择 R1 =/ R2</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-4-值范围-c"><span class="toc-text">2.4 值范围 %c##-#\</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#参考文档"><span class="toc-text">参考文档</span></a></li></ol></div><div class="post-content"><p>ABNF英文全称是Augmented Backus-Naur Form，这是一种基于BNF的元语言，在很多的Internet technical Specification中用于定义正式语法。</p>
+<h2 id="1-规则定义"><a href="#1-规则定义" class="headerlink" title="1 规则定义"></a>1 规则定义</h2><h3 id="1-1-规则形式"><a href="#1-1-规则形式" class="headerlink" title="1.1 规则形式"></a>1.1 规则形式</h3><p>规则定义的形式如下所示</p>
+<blockquote>
+<p>name = elements crlf</p>
+</blockquote>
+<p>其中</p>
+<ul>
+<li>name 表示规则名称，对于它的解释可以参考<a href="#Rule Naming">Rule Naming</a>，</li>
+<li>elements 可以是一个或者多个规则或者最终值的操作组合，关于最终值和操作可以参考<a href="#Terminal Values">Terminal Values</a></li>
+<li>crlf 行结束标志(回车换行)</li>
+</ul>
+<p>为了视觉效果，规则定义需要左对齐，如果碰上一个规则需要多行的情况，那么接下来的行需要缩进，而它们对齐和缩进的基准是ABNF规则的第一行。</p>
+<h3 id="1-2-规则名称"><a href="#1-2-规则名称" class="headerlink" title="1.2 规则名称"></a><span id="Rule Naming">1.2 规则名称</span></h3><p>规则名称由字母开头，后续可以包含字母、数字和连字符(减号)组合的序列,其中需要注意的是规则名称<strong>不区分大小写</strong>。而且不像BNF，用尖括号(<strong>&lt;</strong>，<strong>&gt;</strong>)包围规则名称并不是必需的。</p>
+<h3 id="1-3-最终值"><a href="#1-3-最终值" class="headerlink" title="1.3 最终值"></a><span id="Terminal Values">1.3 最终值</span></h3><p>所有规则最终都会由最终值来解释，而所谓的最终值是由一个指定的基数再结合一个或者多个数值字符来指定。当前已经定义的基数有三种：</p>
+<ul>
+<li>b： 二进制 binary</li>
+<li>d： 十进制 decimal</li>
+<li>x： 十六进制 hexadecimal</li>
+</ul>
+<p>以回车CR为例，下面的规则分别采用十进制和十六进制为基数</p>
+<blockquote>
+<p>CR = %d13</p>
+<p>CR = %x0D</p>
+</blockquote>
+<p>当碰到需要表示多个字符时，可以用<strong>“.”</strong>来进行串联</p>
+<blockquote>
+<p>false = %x66.61.6c.73.65</p>
+</blockquote>
+<p>同时ABNF也允许使用双引号来直接说明文字文本</p>
+<blockquote>
+<p>command = “pwd”</p>
+</blockquote>
+<p>但是需要注意的是，这里字符串是大小写不敏感，且使用的字符集是US-ASCII。因此上面的字符串会匹配”pwd”,”Pwd”,”pWd”,”pwD”,”PWd”,”pWD”,”PwD”和”PWD”。如果我们需要字符串具备大小写敏感特性，那么可以分别指定每个字符，有下面两种方式:</p>
+<blockquote>
+<p>command = %d112.119.100</p>
+<p>command = %d112 %119 %109</p>
+</blockquote>
+<h2 id="2-操作"><a href="#2-操作" class="headerlink" title="2.操作"></a>2.操作</h2><h3 id="2-1-级联-R1-R2"><a href="#2-1-级联-R1-R2" class="headerlink" title="2.1 级联 R1 R2"></a>2.1 级联 R1 R2</h3><p>可以将已经定义的规则和最终值按顺序列出来，元素之间用空白字符来进行区分。</p>
+<blockquote>
+<p>foo = %x61</p>
+<p>bar = %x62</p>
+<p>mumble = foo bar foo</p>
+</blockquote>
+<p>在上面的示例里规则foo匹配a，bar匹配b，mumble将匹配aba。</p>
+<h3 id="2-2-选择-R1-R2"><a href="#2-2-选择-R1-R2" class="headerlink" title="2.2 选择 R1 / R2"></a>2.2 选择 R1 / R2</h3><p>可以通过在规则之间插入/，让规则变成可选。</p>
+<blockquote>
+<p>ws = %x20 / %x09 / %x0A / %x0D</p>
+</blockquote>
+<p>在上面的示例里，规则ws会匹配空格、制表符、换行、回车。</p>
+<h3 id="2-3-增量选择-R1-R2"><a href="#2-3-增量选择-R1-R2" class="headerlink" title="2.3 增量选择 R1 =/ R2"></a>2.3 增量选择 R1 =/ R2</h3><p>有时候，我们可能希望有一种增量的方式，可以在旧规则里添加新的功能可选项，这个时候增量选择就比较适用，它通过<strong>=/</strong>来将新规则变成旧规则的可选项之一。</p>
+<blockquote>
+<p>ruleset = alt1 / alt2</p>
+<p>ruleset =/ alt3</p>
+<p>ruleset =/ alt4 / alt5</p>
+</blockquote>
+<p>最终ruleset等价于下面所示：</p>
+<blockquote>
+<p>ruleset = alt1 / alt2 / alt3 / alt4 / alt5</p>
+</blockquote>
+<h3 id="2-4-值范围-c"><a href="#2-4-值范围-c" class="headerlink" title="2.4 值范围 %c##-#\"></a>2.4 值范围 %c##-#\</h3><p>我们可以通过连字符(-)来满足指定一个范围的值</p>
+<blockquote>
+<p>DIGIT = %x30-39</p>
+</blockquote>
+<p>实际上等价于</p>
+<blockquote>
+<p>DIGIT = “0” / “1” / “2” / “3” / “4” / “5” / “6” / “7” / “8” / “9”</p>
+</blockquote>
+<p>未完待续…</p>
+<h2 id="参考文档"><a href="#参考文档" class="headerlink" title="参考文档"></a>参考文档</h2><p><a href="https://tools.ietf.org/html/rfc5234" target="_blank" rel="external">RFC 5234</a><br><a href="https://zh.wikipedia.org/wiki/%E6%89%A9%E5%85%85%E5%B7%B4%E7%A7%91%E6%96%AF%E8%8C%83%E5%BC%8F" target="_blank" rel="external">维基百科 扩充巴科斯范式</a></p>
+</div></article><div class="tags"></div><div class="paginator"><a href="/2016/10/25/Hive-VLong-to-Java-long/" class="next"><span>Next</span><i class="iconfont icon-right"></i></a></div><section id="comments"><div id="disqus_thread"></div></section><script type="text/javascript">var disqus_config = function () {
+    this.page.url = 'https://lukaicheng.github.io/2016/11/02/ABNF/';
+    this.page.identifier = '2016/11/02/ABNF/';
+    this.page.title = 'ABNF应知应会';
+};
+(function() {
+var d = document, s = d.createElement('script');
+
+s.src = '//Your disqus ID.disqus.com/embed.js';
+
+s.setAttribute('data-timestamp', +new Date());
+(d.head || d.body).appendChild(s);
+})();</script></section><footer><div class="copyright"><p class="power">Powered by <a href="https://hexo.io/">Hexo</a> and Theme by <a href="https://github.com/ahonn/hexo-theme-even"> Even</a></p><p class="since">&copy;2016<span class="heart"><i class="iconfont icon-heart"></i></span><span class="author">Lucifer</span></p></div><label id="back2top"><i class="iconfont icon-up"></i></label></footer></div><script src="/js/zepto.min.js"></script><script src="/js/theme.js"></script></body></html>
