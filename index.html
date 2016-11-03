@@ -19,7 +19,7 @@ ga('send', 'pageview');</script></head><body><div id="main"><header><a href="/."
 <p>其中</p>
 <ul>
 <li>name 表示规则名称，对于它的解释可以参考<a href="#Rule Naming">Rule Naming</a>，</li>
-<li>elements 可以是一个或者多个规则或者最终值的操作组合，关于最终值和操作可以参考<a href="#Terminal Values">Terminal Values</a></li>
+<li>elements 可以是一个或者多个规则或者最终值的操作组合，关于最终值可以参考<a href="#Terminal Values">Terminal Values</a></li>
 <li>crlf 行结束标志(回车换行)</li>
 </ul>
 <p>为了视觉效果，规则定义需要左对齐，如果碰上一个规则需要多行的情况，那么接下来的行需要缩进，而它们对齐和缩进的基准是ABNF规则的第一行。</p>
@@ -46,7 +46,7 @@ ga('send', 'pageview');</script></head><body><div id="main"><header><a href="/."
 <p>但是需要注意的是，这里字符串是大小写不敏感，且使用的字符集是US-ASCII。因此上面的字符串会匹配”pwd”,”Pwd”,”pWd”,”pwD”,”PWd”,”pWD”,”PwD”和”PWD”。如果我们需要字符串具备大小写敏感特性，那么可以分别指定每个字符，有下面两种方式:</p>
 <blockquote>
 <p>command = %d112.119.100</p>
-<p>command = %d112 %119 %109</p>
+<p>command = %d112 %d119 %d109</p>
 </blockquote>
 <h2 id="2-操作"><a href="#2-操作" class="headerlink" title="2.操作"></a>2.操作</h2><h3 id="2-1-级联-R1-R2"><a href="#2-1-级联-R1-R2" class="headerlink" title="2.1 级联 R1 R2"></a>2.1 级联 R1 R2</h3><p>可以将已经定义的规则和最终值按顺序列出来，元素之间用空白字符来进行区分。</p>
 <blockquote>
@@ -70,13 +70,36 @@ ga('send', 'pageview');</script></head><body><div id="main"><header><a href="/."
 <blockquote>
 <p>ruleset = alt1 / alt2 / alt3 / alt4 / alt5</p>
 </blockquote>
-<h3 id="2-4-值范围-c"><a href="#2-4-值范围-c" class="headerlink" title="2.4 值范围 %c##-#\"></a>2.4 值范围 %c##-#\</h3><p>我们可以通过连字符(-)来满足指定一个范围的值</p>
+<h3 id="2-4-值范围"><a href="#2-4-值范围" class="headerlink" title="2.4 值范围"></a>2.4 值范围</h3><p>通过使用连字符(-),ABNF还可以实现指定一个范围的值。</p>
 <blockquote>
 <p>DIGIT = %x30-39</p>
 </blockquote>
-<p>实际上等价于</p>
+<p>上面的示例规则，实际上等价于下面的规则</p>
 <blockquote>
 <p>DIGIT = “0” / “1” / “2” / “3” / “4” / “5” / “6” / “7” / “8” / “9”</p>
+</blockquote>
+<h3 id="2-5-序列组合-R1-R2"><a href="#2-5-序列组合-R1-R2" class="headerlink" title="2.5 序列组合 (R1 R2)"></a>2.5 序列组合 (R1 R2)</h3><p>用括号将连个规则包围起来，这样的组合会被当成单个元素，对于一些优先级比较容易混淆的情况尤其推荐使用它。</p>
+<blockquote>
+<p>group = elem (foo / bar) blat</p>
+</blockquote>
+<p>上面的示例会匹配 elem foo blat 或者 elem bar blat，但是如果我们不使用括号的话</p>
+<blockquote>
+<p>group = elem foo / bar blat</p>
+</blockquote>
+<p>由于操作符优先级的关系，其实group会匹配elem foo或bar blat。</p>
+<h3 id="2-6-不定量重复-Rule"><a href="#2-6-不定量重复-Rule" class="headerlink" title="2.6 不定量重复 *Rule"></a>2.6 不定量重复 *Rule</h3><p>我们可以在规则的前面添加*，来表示重复这个规则，完整的形式是m*nRule。其中m和n都是可选的，m表示至少重复多少次，n表示最多重复多少次。两者默认的值分别是0和无穷大，所以*Rule表示允许任意次数的重复包括零次。1*Rule表示规则至少重复一次，1*2Rule表示规则重复一次或两次,3*3Rule表示规则必须且仅允许重复3次。</p>
+<h3 id="2-7-定量重复-nRule"><a href="#2-7-定量重复-nRule" class="headerlink" title="2.7 定量重复 nRule"></a>2.7 定量重复 nRule</h3><p>除了不定量重复之外，ABNF也允许指定次数的重复，完整形式是nRule，其实等价于n*nRule。运用这个方式，2DIGIT就表示2位数字，3ALPHA表示长度为3的字符串。</p>
+<h3 id="2-8-可选序列-Rule"><a href="#2-8-可选序列-Rule" class="headerlink" title="2.8 可选序列 [Rule]"></a>2.8 可选序列 [Rule]</h3><p>可以使用方括号来圈定一个可选序列</p>
+<blockquote>
+<p>rule = [foo bar]</p>
+</blockquote>
+<p>等价于</p>
+<blockquote>
+<p>rule = *1(foo bar)</p>
+</blockquote>
+<h3 id="2-9-注释"><a href="#2-9-注释" class="headerlink" title="2.9 注释"></a>2.9 注释</h3><p>对于规则的说明，也提供了注释方式，以分号<strong>;</strong>开始，并到此行的结束。</p>
+<blockquote>
+<p>false = %x66.61.6c.73.65   ; false</p>
 </blockquote>
 <p>未完待续…</p>
 <h2 id="参考文档"><a href="#参考文档" class="headerlink" title="参考文档"></a>参考文档</h2><p><a href="https://tools.ietf.org/html/rfc5234" target="_blank" rel="external">RFC 5234</a><br><a href="https://zh.wikipedia.org/wiki/%E6%89%A9%E5%85%85%E5%B7%B4%E7%A7%91%E6%96%AF%E8%8C%83%E5%BC%8F" target="_blank" rel="external">维基百科 扩充巴科斯范式</a></p>
