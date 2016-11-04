@@ -28,27 +28,27 @@ public static Long convertHiveBigint(BytesRefWritable brw) throws Exception{
 ## 奇怪的-118
 就在我以为上面的修改可以奏效之时，实际运行时却抛出了鲜红的异常
 
-![异常信息](https://github.com/LuKaicheng/lukaicheng.github.io/blob/hexo/source/images/exception.png)
+![异常信息](https://raw.githubusercontent.com/LuKaicheng/lukaicheng.github.io/hexo/source/images/exception.png)
 
 
 从异常信息里不难看出，对于Java long来说，已经规定是需要8个字节，然而在上面代码里，最终转换时确变成了7个字节。为此，对程序进行了调试，将原始的brw.getData打印了出来
 
-![原始字节数据](https://github.com/LuKaicheng/lukaicheng.github.io/blob/hexo/source/images/bytesarray.png)
+![原始字节数据](https://raw.githubusercontent.com/LuKaicheng/lukaicheng.github.io/hexo/source/images/bytesarray.png)
 
 结合调试得到的offset和length值，获知到程序真实运行时取值为 **-118 1 58 92 103 58 -127**，而我直接通过hive sql查询列原始值，并转换成字节数组为 **0 0 1 58 92 103 58 -127**。观察这两组数据不难发现，不同之处在于前者开头是-118，而后者是0 0。而再仔细观察上面的字节数组，会很惊讶的发现，好像每隔6位，就会出现-118。这个时候，我就猜测假如能够弄明白-118的来源，那么我们的问题有很大概率就可以解决了。
 
 ## 无心插柳
 正当我对这个问题陷入困顿的时候，无意间发现了下图的信息(莫非这个是hive序列化类(⊙o⊙)？)
 
-![hive信息](https://github.com/LuKaicheng/lukaicheng.github.io/blob/hexo/source/images/hive.png)
+![hive信息](https://raw.githubusercontent.com/LuKaicheng/lukaicheng.github.io/hexo/source/images/hive.png)
 
 于是，我马上翻开了这个类的源码，根据类上面的注释确认了该类确实能将hive column序列化为BytesRefArrayWritable。该类只有initialize和serialize这两个方法，针对序列化过程，不难猜到入口肯定是serialize这个方法，由于需要序列化的列类型是Bigint，因此判定进入如下分支:
 
-![序列化](https://github.com/LuKaicheng/lukaicheng.github.io/blob/hexo/source/images/serialize.png)
+![序列化](https://raw.githubusercontent.com/LuKaicheng/lukaicheng.github.io/hexo/source/images/serialize.png)
 
 进入此方法后，是一个switch case分支选择，根据bigint和long对应关系，判定进入如下case：
 
-![Long](https://github.com/LuKaicheng/lukaicheng.github.io/blob/hexo/source/images/caselong.png)
+![Long](https://raw.githubusercontent.com/LuKaicheng/lukaicheng.github.io/hexo/source/images/caselong.png)
 
 最终代码导航下去，你会发现实际的转换过程在方法**LazyBinaryUtils.writeVLongToByteArray**,这也解开了上面-118的问题,不过限于水平目前还不太理解这段代码的含义。
 
