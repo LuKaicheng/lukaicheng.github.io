@@ -101,7 +101,108 @@ ga('send', 'pageview');</script></head><body><div id="main"><header><a href="/."
 <blockquote>
 <p>false = %x66.61.6c.73.65   ; false</p>
 </blockquote>
-<p>未完待续…</p>
+<h2 id="3-操作优先级"><a href="#3-操作优先级" class="headerlink" title="3.操作优先级"></a>3.操作优先级</h2><p>以下给出了从高(结合最紧密)到低(结合最松散)的优先级:</p>
+<ol>
+<li>规则名、最终值</li>
+<li>注释</li>
+<li>值范围</li>
+<li>重复</li>
+<li>序列组合、可选序列</li>
+<li>级联</li>
+<li>选择</li>
+</ol>
+<p>由于级联和选择混用时，往往会让人困惑，建议使用序列组合来消除歧义。</p>
+<h2 id="4-核心规则"><a href="#4-核心规则" class="headerlink" title="4.核心规则"></a>4.核心规则</h2><table>
+<thead>
+<tr>
+<th style="text-align:left">规则</th>
+<th style="text-align:left">定义</th>
+<th style="text-align:left">备注</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left">ALPHA</td>
+<td style="text-align:left">%x41-5A / %x61-7A</td>
+<td style="text-align:left">A-Z / a-z</td>
+</tr>
+<tr>
+<td style="text-align:left">BIT</td>
+<td style="text-align:left">“0” / “1”</td>
+<td style="text-align:left">二进制字符</td>
+</tr>
+<tr>
+<td style="text-align:left">CHAR</td>
+<td style="text-align:left">%x01-7F</td>
+<td style="text-align:left">任何7位的US-ASCII字符，不包括Nul(%x00)</td>
+</tr>
+<tr>
+<td style="text-align:left">VARCHAR</td>
+<td style="text-align:left">%x21-7E</td>
+<td style="text-align:left">可见(可打印)字符</td>
+</tr>
+<tr>
+<td style="text-align:left">CR</td>
+<td style="text-align:left">%x0D</td>
+<td style="text-align:left">回车</td>
+</tr>
+<tr>
+<td style="text-align:left">LF</td>
+<td style="text-align:left">%x0A</td>
+<td style="text-align:left">换行</td>
+</tr>
+<tr>
+<td style="text-align:left">CRLF</td>
+<td style="text-align:left">CR LF</td>
+<td style="text-align:left">回车换行</td>
+</tr>
+<tr>
+<td style="text-align:left">CTL</td>
+<td style="text-align:left">%x00-1F / %x7F</td>
+<td style="text-align:left">控制字符</td>
+</tr>
+<tr>
+<td style="text-align:left">DIGIT</td>
+<td style="text-align:left">%x30-39</td>
+<td style="text-align:left">数字0-9</td>
+</tr>
+<tr>
+<td style="text-align:left">DQUOTE</td>
+<td style="text-align:left">%x22</td>
+<td style="text-align:left">双引号</td>
+</tr>
+<tr>
+<td style="text-align:left">HEXDIG</td>
+<td style="text-align:left">DIGIT / “A” / “B” / “C” / “D” / “E” / “F”</td>
+<td style="text-align:left">十六进制字符</td>
+</tr>
+<tr>
+<td style="text-align:left">OCTET</td>
+<td style="text-align:left">%x00-FF</td>
+<td style="text-align:left">8位数据</td>
+</tr>
+<tr>
+<td style="text-align:left">HTAB</td>
+<td style="text-align:left">%x09</td>
+<td style="text-align:left">横向制表符</td>
+</tr>
+<tr>
+<td style="text-align:left">SP</td>
+<td style="text-align:left">%x20</td>
+<td style="text-align:left">空格</td>
+</tr>
+<tr>
+<td style="text-align:left">WSP</td>
+<td style="text-align:left">SP / HTAB</td>
+<td style="text-align:left">空格或者横向制表符</td>
+</tr>
+<tr>
+<td style="text-align:left">LWSP</td>
+<td style="text-align:left">*(WSP / CRLF WSP)</td>
+<td style="text-align:left">空白行(不要用于邮件头，另外在其他上下文中使用也需要小心)</td>
+</tr>
+</tbody>
+</table>
 <h2 id="参考文档"><a href="#参考文档" class="headerlink" title="参考文档"></a>参考文档</h2><p><a href="https://tools.ietf.org/html/rfc5234" target="_blank" rel="external">RFC 5234</a><br><a href="https://zh.wikipedia.org/wiki/%E6%89%A9%E5%85%85%E5%B7%B4%E7%A7%91%E6%96%AF%E8%8C%83%E5%BC%8F" target="_blank" rel="external">维基百科 扩充巴科斯范式</a></p>
 </div></article></li><li class="post-item"><article class="post"><h2 class="post-title"><a href="/2016/10/25/Hive-VLong-to-Java-long/" class="post-link">RCFile文件格式下的Hive表bigint类型列值读取问题</a></h2><span class="post-time">Oct 25, 2016</span><div class="post-content"><h2 id="背景缘起"><a href="#背景缘起" class="headerlink" title="背景缘起"></a>背景缘起</h2><p>目前在将hive部分列数据采集到hbase时，由于平台将原来hive表的文件格式从SequenceFile调整到RCFile，因此需要对原来的离线数据采集程序进行修改。然而在实际修改开发过程中，却碰到了程序读取hive列字段，值为乱码的问题。</p>
 <h2 id="初步诊断"><a href="#初步诊断" class="headerlink" title="初步诊断"></a>初步诊断</h2><p>由于之前的文件格式是SequenceFile，不管列在hive中数据类型是什么，程序都可以以统一的读取String方式来读取。因此在变更为RCFile方式时，仅仅调整了输入部分，转换依然采用了Bytes.toString方式。</p>
