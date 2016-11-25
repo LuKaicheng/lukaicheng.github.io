@@ -2,6 +2,13 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   
   <url>
+    <loc>https://lukaicheng.github.io/2016/11/17/Reading-JDK-ArrayList/</loc>
+    
+    <lastmod>2016-11-25T09:05:23.664Z</lastmod>
+    
+  </url>
+  
+  <url>
     <loc>https://lukaicheng.github.io/2016/10/25/Hive-VLong-to-Java-long/</loc>
     
     <lastmod>2016-11-04T03:34:58.933Z</lastmod>
