@@ -16,10 +16,11 @@ ArrayList是List接口的一种可增长数组实现。
 ```java
 private transient Object[] elementData;
 ```
-尽管从声明上看它是数组类型，然而它的长度却并不固定，这里的意思并不说是可以在数组创建之后再改变它的大小，而是指当进行容量评估时，如果发现需要扩容或者收缩时，那么会重新创建一个数组并伴随一次拷贝，然后将**elementData**指向新数组，从而达到扩容或者收缩的目的。
+尽管从声明上看它是数组类型，然而它的长度却并不固定，这里的意思并不说是可以在数组创建之后再改变它的大小，而是指当进行容量评估时，如果发现需要扩容或者收缩，那么会重新创建一个数组并伴随一次拷贝，然后将**elementData**指向新数组，从而达到扩容或者收缩的目的。
 
 ### 2.2 size
 **size**属性就是列表实际所包含的元素个数。
+
 ```java
 private int size;
 ```
@@ -82,7 +83,7 @@ private static int hugeCapacity(int minCapacity){
         MAX_ARRAY_SIZE; 
 }
 ```
-**ensureExplicitCapacity()**方法会首先判定所需的最小容量是否超过当前数组长度，只有在肯定的情况下，才会调用**grow()**方法。观察10-11行代码，JDK会默认将原先的数组长度扩充到1.5倍，接着12-13行代码，新容量会同最小容量比较，如果新容量小于最小容量，那么将会把新容量赋值为最小容量。而代码14-15行，则是考虑到了容量扩充到1.5倍时可能发生的int值溢出并进行相应处理。最后16行才是真正的进行新数组创建，旧数组元素拷贝的过程。
+**ensureExplicitCapacity()**方法会首先判定所需的最小容量是否超过当前数组长度，只有在肯定的情况下，才会调用**grow()**方法。观察此方法代码，首先默认将原先的数组长度扩充到1.5倍，接着将新容量与最小容量比较，如果发现新容量小于最小容量，那么将会把新容量赋值为最小容量。而后则是对容量扩充到1.5倍时可能发生的int值溢出的情况，进行一些处理。最后才是真正的进行新数组创建，旧数组元素拷贝的过程。
 ### 3.2 收缩
 由于列表在增加元素的时候会进行隐式扩容，从而导致底层数组容量往往超过实际所包含的元素，如果碰到资源敏感的场景下，那么可以使用**trimToSize()**方法进行收缩，使得底层数组容量和实际元素个数持平。
 ```java
@@ -103,14 +104,14 @@ private void rangeCheck(int index){
         throw new IndexOutOfBoundsException(outOfBoundsMsg(index));
 }
 ```
-**rangeCheck()**主要是针对get()、set()、remove()方法进行索引检测，注意到上面代码并没有对index为负的情况进行检测，这是因为紧跟本方法调用的是对底层数组的访问，而后者会直接检测索引为负的情况，但另外一方面由于隐式扩容的缘故，底层数组包含的实际元素个数往往小于数组长度，因此针对索引超出的情况只能在本方法里判定。
+**rangeCheck()**主要是针对*get()、set()、remove()*方法进行索引检测，注意到上面代码并没有对index为负的情况进行检测，这是因为紧跟本方法调用的是对底层数组的访问，而后者会直接检测索引为负的情况，但另外一方面由于隐式扩容的缘故，底层数组包含的实际元素个数往往小于数组长度，因此针对索引超出的情况只能在本方法里判定。
 ```java
 private void rangeCheckForAdd(int index){
     if(index > size || index < 0)
         throw new IndexOutOfBoundsException(outOfBoundsMsg(index));
 }
 ```
-顾名思义，**rangeCheckForAdd()**方法在运行时会被add()、addAll()所调用。相比**rangeCheck()**方法，由于后续不是紧跟对底层数组的访问，因此增加了对于索引为负的情况的判定，同时因为允许元素可以末端添加，去掉了index = size这种情况。
+顾名思义，**rangeCheckForAdd()**方法在运行时会被*add()、addAll()*所调用。相比**rangeCheck()**方法，由于后续不是紧跟对底层数组的访问，因此增加了对于索引为负的情况的判定，同时因为允许元素可以末端添加，去掉了index = size这种情况。
 
 ### 4.2 modCount
 **modCount**是ArrayList从父类AbstractList从继承过来的属性，这个属性用于记录列表经历的结构性修改的次数，主要被迭代器([iterator](#51-iterator)和[listIterator](#52-listiterator))使用。
@@ -142,16 +143,17 @@ public void remove() {
     checkForComodification();
 
     try {
-        ArrayList.this.remove(lastRet);
-        cursor = lastRet;
-        lastRet = -1;
-        expectedModCount = modCount;
+        ArrayList.this.remove(lastRet);//后续元素前移 & modCount++
+        cursor = lastRet;//元素前移，当前位置的元素的索引发生变化
+        lastRet = -1;//只有在next重新调用之后，才能再次调用remove
+        expectedModCount = modCount;//由于modCount变化，需要重新赋值
     } catch (IndexOutOfBoundsException ex) {
         throw new ConcurrentModificationException();
     }
 }
 ```
-第7行调用外部对应的remove方法，可不仅仅只是删除了上一个返回的元素，还做了另外两件事情：一、将被删除元素之后的元素统一进行了前移；二、将modCount进行了+1操作。因此，可以看到代码第8行，cursor的值被赋予上一次返回的索引位置，这是因为下个元素被前移的缘故。第9行将lastRet重新赋值为-1，结合代码第2、3行，保证只有再次调用next之后，才能重新调用remove。最后第10行，将expetedModCount重新赋值为列表的modCount，这是由于上述第二个副作用的缘由，如果不重新赋值，将无法通过下一次的checkForComodification检测。
+**Remove()**方法首先对lastRet进行了检验，结合后续代码中对于lastRet赋值为-1的情况和**next()**方法实现情况，可以知道**remove()**方法只有在**next()**方法被调用一次才能调用并且不能连续连续调用**remove()**方法。接着是上面已经提过的modCount检测。然后才是真正的remove操作，它是通过调用外部对象的remove方法来实现移除最近返回的元素。但是这里要注意的是，调用这个方法，会有两个**"副作用"**：一，被移除元素的后续元素都会前移一位；二，modCount将会+1。因此在最后的代码中，才会看见cursor和expectedModCount被重新赋值，这实质上是为了抵消这两个副作用的影响。
+
 ### <span id="52-listiterator">5.2 listIterator</span>
 除了一般版本的迭代器，ArrayList还提供了listIterator，与一般版本相比，不仅可以往后进行迭代，还可以向前迭代。外部可以通过**listIterator()**方法获取该迭代器，该方法返回**ListItr**内部类的一个实例，**ListItr**继承关系如下所示。
 ```java
@@ -160,7 +162,26 @@ public ListIterator<E> listIterator() {
 }
 private class ListItr extends Itr implements ListIterator<E> {}
 ```
-由于**List**继承了**Itr**，在**hasNext()、next()、remove()**这几个方法的实现上，并未改变父类中的行为，仅仅实现了**hasPrevious()、previous()、nextIndex()、previousIndex()、set()、add()**。**nextIndex()**和**previousIndex()**由于cursor属性的存在，实现比较简单。**hasPrevious()**方法同next实现类似，只不过这次是需要判定cursor是否同0相同。
+**ListItr**继承了**Itr**，在*hasNext()、next()、remove()*这几个方法的实现上，并未改变其父类中的行为，仅仅是对*hasPrevious()、previous()、nextIndex()、previousIndex()、set()、add()*方法进行了实现。**nextIndex()**和**previousIndex()**两个方法都可以直接借助cursor属性进行返回。**hasPrevious()**方法同**hasNext()**实现类似，只不过这次是需要判定cursor是否同0相同,即可判断出是否还存在上一个元素。同样，对于**previous()**方法可参考**next()**，只不过需要返回的是数据中cursor-1位置的数据。**set()**方法则是简单的调用了外部列表的**set()**方法。最后主要来讲一下**add()**方法的实现。
+```java
+public void add(E e) {
+    checkForComodification();
+
+    try {
+        int i = cursor;
+        ArrayList.this.add(i, e);//当前位置元素以及之后元素后移 & modCount++
+        cursor = i + 1;//重新赋值当前游标的值
+        lastRet = -1;//保证只有在next或者previous之后，才能重新调用set方法
+        expectedModCount = modCount;//由于modCount变化，需要重新赋值
+    } catch (IndexOutOfBoundsException ex) {
+        throw new ConcurrentModificationException();
+    }
+}
+```
+
+**Add()**方法首先照例进行列表结构性修改检测，接着实际上调用了外部ArrayList对象的add方法来进行元素添加，类似的，这个调用也会产生两个**"副作用"**：一、原有当前位置以及之后的元素被后移一位；二、modCount将会+1。因此，在后续代码中可以看到对cursor进行了+1操作，同时将新的modCount值赋予expectedModCount。
+
+
 
 **未完待续...**
 
