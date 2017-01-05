@@ -2,6 +2,7 @@
 title: JDK源码阅读总结--ArrayList
 date: 2016-11-17 15:26:10
 tags:
+- Java collections framework
 ---
 ## 1 简介
 
