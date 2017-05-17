@@ -19,6 +19,8 @@ public interface BeanPostProcessor {
 
 需要注意的是这里所说的bean初始化行为主要是指调用**InitializingBean**的*afterPropertiesSet*或者一个自定义的*init-method*。
 
+<!--more-->
+
 # 触发时机
 
 根据Spring提供的文档注释，不难获知**BeanPostProcessor**提供的两个方法会分别在bean进行初始化的前后被触发调用。抱着好奇心，也是为了更深入的理解，我通过IDE查看这两个方法的调用链，然后发现原来抽象类**AbstractAutowireCapableBeanFactory**的*initializeBean*方法会间接调用这两者：

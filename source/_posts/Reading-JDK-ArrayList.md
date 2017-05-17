@@ -13,6 +13,8 @@ public class ArrayList<E> extends AbstractList<E>
 
 ArrayList是List接口的一种可变长的数组实现，支持随机访问，它允许添加包括**null**在内的所有元素。另外，ArrayList的实现并不是线程安全的，如果有多个线程访问，且其中至少一个会涉及**结构性修改**，最好采用并发控制策略，或者采用*Collections.synchronizedList*进行包装，防止意外的非同步访问。以下所述基于JDK1.7.0_79源码。
 
+<!--more-->
+
 ## 2 基本属性
 
 ### 2.1 elementData

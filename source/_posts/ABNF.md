@@ -5,6 +5,8 @@ tags:
 ---
 ABNF英文全称是Augmented Backus-Naur Form，这是一种基于BNF的元语言，在很多的Internet technical Specification中用于定义正式语法。
 
+<!--more-->
+
 ## 1 规则定义
 
 ### 1.1 规则形式
@@ -33,7 +35,7 @@ ABNF英文全称是Augmented Backus-Naur Form，这是一种基于BNF的元语�
 以回车CR为例，下面的规则分别采用十进制和十六进制为基数
 
 > CR = %d13
-> 
+>
 > CR = %x0D
 
 当碰到需要表示多个字符时，可以用**“.”**来进行串联
@@ -47,7 +49,7 @@ ABNF英文全称是Augmented Backus-Naur Form，这是一种基于BNF的元语�
 但是需要注意的是，这里字符串是大小写不敏感，且使用的字符集是US-ASCII。因此上面的字符串会匹配"pwd","Pwd","pWd","pwD","PWd","pWD","PwD"和"PWD"。如果我们需要字符串具备大小写敏感特性，那么可以分别指定每个字符，有下面两种方式:
 
 > command = %d112.119.100
-> 
+>
 > command = %d112 %d119 %d109
 
 ## 2.操作
@@ -56,9 +58,9 @@ ABNF英文全称是Augmented Backus-Naur Form，这是一种基于BNF的元语�
 
 可以将已经定义的规则和最终值按顺序列出来，元素之间用空白字符来进行区分。
 > foo = %x61
-> 
+>
 > bar = %x62
-> 
+>
 > mumble = foo bar foo
 
 在上面的示例里规则foo匹配a，bar匹配b，mumble将匹配aba。
@@ -72,16 +74,16 @@ ABNF英文全称是Augmented Backus-Naur Form，这是一种基于BNF的元语�
 ### 2.3 增量选择 R1 =/ R2
 有时候，我们可能希望有一种增量的方式，可以在旧规则里添加新的功能可选项，这个时候增量选择就比较适用，它通过**=/**来将新规则变成旧规则的可选项之一。
 > ruleset = alt1 / alt2
-> 
+>
 > ruleset =/ alt3
-> 
+>
 > ruleset =/ alt4 / alt5
 
 最终ruleset等价于下面所示：
 > ruleset = alt1 / alt2 / alt3 / alt4 / alt5
 
 ### 2.4 值范围
-  
+
 通过使用连字符(-),ABNF还可以实现指定一个范围的值。
 
 > DIGIT = %x30-39
@@ -141,24 +143,24 @@ ABNF英文全称是Augmented Backus-Naur Form，这是一种基于BNF的元语�
 
 ## 4.核心规则
 
-|规则|定义|备注|
-|:-----------|:---------------------------|:-----------------------|
-|ALPHA|%x41-5A / %x61-7A| A-Z / a-z|
-|BIT|"0" / "1"|二进制字符|
-|CHAR|%x01-7F|任何7位的US-ASCII字符，不包括Nul(%x00)|
-|VARCHAR|%x21-7E|可见(可打印)字符|
-|CR|%x0D|回车|
-|LF|%x0A|换行|
-|CRLF|CR LF|回车换行|
-|CTL|%x00-1F / %x7F|控制字符|
-|DIGIT|%x30-39|数字0-9|
-|DQUOTE|%x22|双引号|
-|HEXDIG|DIGIT / "A" / "B" / "C" / "D" / "E" / "F"|十六进制字符|
-|OCTET|%x00-FF|8位数据|
-|HTAB|%x09|横向制表符|
-|SP|%x20|空格|
-|WSP|SP / HTAB|空格或者横向制表符|
-|LWSP|*(WSP / CRLF WSP)|空白行(不要用于邮件头，另外在其他上下文中使用也需要小心)|
+| 规则      | 定义                                       | 备注                            |
+| :------ | :--------------------------------------- | :---------------------------- |
+| ALPHA   | %x41-5A / %x61-7A                        | A-Z / a-z                     |
+| BIT     | "0" / "1"                                | 二进制字符                         |
+| CHAR    | %x01-7F                                  | 任何7位的US-ASCII字符，不包括Nul(%x00)  |
+| VARCHAR | %x21-7E                                  | 可见(可打印)字符                     |
+| CR      | %x0D                                     | 回车                            |
+| LF      | %x0A                                     | 换行                            |
+| CRLF    | CR LF                                    | 回车换行                          |
+| CTL     | %x00-1F / %x7F                           | 控制字符                          |
+| DIGIT   | %x30-39                                  | 数字0-9                         |
+| DQUOTE  | %x22                                     | 双引号                           |
+| HEXDIG  | DIGIT / "A" / "B" / "C" / "D" / "E" / "F" | 十六进制字符                        |
+| OCTET   | %x00-FF                                  | 8位数据                          |
+| HTAB    | %x09                                     | 横向制表符                         |
+| SP      | %x20                                     | 空格                            |
+| WSP     | SP / HTAB                                | 空格或者横向制表符                     |
+| LWSP    | *(WSP / CRLF WSP)                        | 空白行(不要用于邮件头，另外在其他上下文中使用也需要小心) |
 
 ## 参考文档
 

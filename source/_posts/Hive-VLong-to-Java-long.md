@@ -8,6 +8,8 @@ tags:
 ## 背景缘起
 目前在将hive部分列数据采集到hbase时，由于平台将原来hive表的文件格式从SequenceFile调整到RCFile，因此需要对原来的离线数据采集程序进行修改。然而在实际修改开发过程中，却碰到了程序读取hive列字段，值为乱码的问题。
 
+<!--more-->
+
 ## 初步诊断
 由于之前的文件格式是SequenceFile，不管列在hive中数据类型是什么，程序都可以以统一的读取String方式来读取。因此在变更为RCFile方式时，仅仅调整了输入部分，转换依然采用了Bytes.toString方式。
 
