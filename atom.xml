@@ -5,7 +5,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="https://lukaicheng.github.io/"/>
-  <updated>2017-05-16T03:44:44.514Z</updated>
+  <updated>2017-05-17T02:17:29.397Z</updated>
   <id>https://lukaicheng.github.io/</id>
   
   <author>
@@ -20,11 +20,12 @@
     <link href="https://lukaicheng.github.io/2017/05/15/Spring-BeanPostProcessor/"/>
     <id>https://lukaicheng.github.io/2017/05/15/Spring-BeanPostProcessor/</id>
     <published>2017-05-15T12:40:40.000Z</published>
-    <updated>2017-05-16T03:44:44.514Z</updated>
+    <updated>2017-05-17T02:17:29.397Z</updated>
     
     <content type="html"><![CDATA[<h1 id="接口简介"><a href="#接口简介" class="headerlink" title="接口简介"></a>接口简介</h1><p><strong>BeanPostProcessor</strong>是Spring提供的一个钩子(<em>Hook</em>)接口，可用于实现对新的bean实例进行自定义修改，比如说，检测bean是否实现了某些特定接口从而可以对其进行进一步操作，或者可以将原实例进行包装而实际返回代理对象。其内部主要声明了<em>postProcessBeforeInitialization</em>和<em>postProcessAfterInitialization</em>两个回调方法，具体的接口声明如下所示：</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">interface</span> <span class="title">BeanPostProcessor</span> </span>&#123;</div><div class="line">  	<span class="comment">//在bean进行初始化行为之前被调用</span></div><div class="line">	<span class="function">Object <span class="title">postProcessBeforeInitialization</span><span class="params">(Object bean, String beanName)</span> <span class="keyword">throws</span> BeansException</span>;</div><div class="line">  	<span class="comment">//在bean进行初始化行为之后被调用</span></div><div class="line">	<span class="function">Object <span class="title">postProcessAfterInitialization</span><span class="params">(Object bean, String beanName)</span> <span class="keyword">throws</span> BeansException</span>;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
 <p>需要注意的是这里所说的bean初始化行为主要是指调用<strong>InitializingBean</strong>的<em>afterPropertiesSet</em>或者一个自定义的<em>init-method</em>。</p>
+<a id="more"></a>
 <h1 id="触发时机"><a href="#触发时机" class="headerlink" title="触发时机"></a>触发时机</h1><p>根据Spring提供的文档注释，不难获知<strong>BeanPostProcessor</strong>提供的两个方法会分别在bean进行初始化的前后被触发调用。抱着好奇心，也是为了更深入的理解，我通过IDE查看这两个方法的调用链，然后发现原来抽象类<strong>AbstractAutowireCapableBeanFactory</strong>的<em>initializeBean</em>方法会间接调用这两者：</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div><div class="line">22</div><div class="line">23</div><div class="line">24</div><div class="line">25</div><div class="line">26</div><div class="line">27</div><div class="line">28</div><div class="line">29</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">protected</span> Object <span class="title">initializeBean</span><span class="params">(<span class="keyword">final</span> String beanName, <span class="keyword">final</span> Object bean, RootBeanDefinition mbd)</span> </span>&#123;</div><div class="line">	<span class="keyword">if</span> (System.getSecurityManager() != <span class="keyword">null</span>) &#123;</div><div class="line">		AccessController.doPrivileged(<span class="keyword">new</span> PrivilegedAction&lt;Object&gt;() &#123;</div><div class="line">			<span class="meta">@Override</span></div><div class="line">			<span class="function"><span class="keyword">public</span> Object <span class="title">run</span><span class="params">()</span> </span>&#123;</div><div class="line">				invokeAwareMethods(beanName, bean);</div><div class="line">				<span class="keyword">return</span> <span class="keyword">null</span>;</div><div class="line">			&#125;</div><div class="line">		&#125;, getAccessControlContext());</div><div class="line">	&#125;</div><div class="line">	<span class="keyword">else</span> &#123;</div><div class="line">		invokeAwareMethods(beanName, bean);</div><div class="line">	&#125;</div><div class="line">	Object wrappedBean = bean;</div><div class="line">	<span class="keyword">if</span> (mbd == <span class="keyword">null</span> || !mbd.isSynthetic()) &#123;</div><div class="line">		wrappedBean = applyBeanPostProcessorsBeforeInitialization(wrappedBean, beanName);</div><div class="line">	&#125;</div><div class="line">	<span class="keyword">try</span> &#123;</div><div class="line">		invokeInitMethods(beanName, wrappedBean, mbd);</div><div class="line">	&#125; <span class="keyword">catch</span> (Throwable ex) &#123;</div><div class="line">		<span class="keyword">throw</span> <span class="keyword">new</span> BeanCreationException(</div><div class="line">          (mbd != <span class="keyword">null</span> ? mbd.getResourceDescription() : <span class="keyword">null</span>),</div><div class="line">          	beanName, <span class="string">"Invocation of init method failed"</span>, ex);</div><div class="line">	&#125;</div><div class="line">	<span class="keyword">if</span> (mbd == <span class="keyword">null</span> || !mbd.isSynthetic()) &#123;</div><div class="line">    	wrappedBean = applyBeanPostProcessorsAfterInitialization(wrappedBean, beanName);</div><div class="line">	&#125;</div><div class="line">	<span class="keyword">return</span> wrappedBean;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
 <p>方法<em>applyBeanPostProcessorsBeforeInitialization</em>和<em>applyBeanPostProcessorsAfterInitialization</em>最终会分别调用已经注册的<strong>BeanPostProcessor</strong>的这两个方法，而且是在方法<em>invokeInitMethods</em>调用的前后。而方法<em>invokeInitMethods</em>实质就是对bean进行判定，来确定是否可以转换成<strong>InitializingBean</strong>进而调用接口方法<em>afterPropertiesSet</em>或者是否存在自定义的<em>init-method</em>进行调用。 </p>
@@ -52,7 +53,9 @@
     
     <summary type="html">
     
-      &lt;h1 id=&quot;接口简介&quot;&gt;&lt;a href=&quot;#接口简介&quot; class=&quot;headerlink&quot; title=&quot;接口简介&quot;&gt;&lt;/a&gt;接口简介&lt;/h1&gt;&lt;p&gt;&lt;strong&gt;BeanPostProcessor&lt;/strong&gt;是Spring提供的一个钩子(&lt;em&gt;Hook&lt;/em&gt;
+      &lt;h1 id=&quot;接口简介&quot;&gt;&lt;a href=&quot;#接口简介&quot; class=&quot;headerlink&quot; title=&quot;接口简介&quot;&gt;&lt;/a&gt;接口简介&lt;/h1&gt;&lt;p&gt;&lt;strong&gt;BeanPostProcessor&lt;/strong&gt;是Spring提供的一个钩子(&lt;em&gt;Hook&lt;/em&gt;)接口，可用于实现对新的bean实例进行自定义修改，比如说，检测bean是否实现了某些特定接口从而可以对其进行进一步操作，或者可以将原实例进行包装而实际返回代理对象。其内部主要声明了&lt;em&gt;postProcessBeforeInitialization&lt;/em&gt;和&lt;em&gt;postProcessAfterInitialization&lt;/em&gt;两个回调方法，具体的接口声明如下所示：&lt;/p&gt;
+&lt;figure class=&quot;highlight java&quot;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&quot;gutter&quot;&gt;&lt;pre&gt;&lt;div class=&quot;line&quot;&gt;1&lt;/div&gt;&lt;div class=&quot;line&quot;&gt;2&lt;/div&gt;&lt;div class=&quot;line&quot;&gt;3&lt;/div&gt;&lt;div class=&quot;line&quot;&gt;4&lt;/div&gt;&lt;div class=&quot;line&quot;&gt;5&lt;/div&gt;&lt;div class=&quot;line&quot;&gt;6&lt;/div&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&quot;code&quot;&gt;&lt;pre&gt;&lt;div class=&quot;line&quot;&gt;&lt;span class=&quot;keyword&quot;&gt;public&lt;/span&gt; &lt;span class=&quot;class&quot;&gt;&lt;span class=&quot;keyword&quot;&gt;interface&lt;/span&gt; &lt;span class=&quot;title&quot;&gt;BeanPostProcessor&lt;/span&gt; &lt;/span&gt;&amp;#123;&lt;/div&gt;&lt;div class=&quot;line&quot;&gt;  	&lt;span class=&quot;comment&quot;&gt;//在bean进行初始化行为之前被调用&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;line&quot;&gt;	&lt;span class=&quot;function&quot;&gt;Object &lt;span class=&quot;title&quot;&gt;postProcessBeforeInitialization&lt;/span&gt;&lt;span class=&quot;params&quot;&gt;(Object bean, String beanName)&lt;/span&gt; &lt;span class=&quot;keyword&quot;&gt;throws&lt;/span&gt; BeansException&lt;/span&gt;;&lt;/div&gt;&lt;div class=&quot;line&quot;&gt;  	&lt;span class=&quot;comment&quot;&gt;//在bean进行初始化行为之后被调用&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;line&quot;&gt;	&lt;span class=&quot;function&quot;&gt;Object &lt;span class=&quot;title&quot;&gt;postProcessAfterInitialization&lt;/span&gt;&lt;span class=&quot;params&quot;&gt;(Object bean, String beanName)&lt;/span&gt; &lt;span class=&quot;keyword&quot;&gt;throws&lt;/span&gt; BeansException&lt;/span&gt;;&lt;/div&gt;&lt;div class=&quot;line&quot;&gt;&amp;#125;&lt;/div&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;需要注意的是这里所说的bean初始化行为主要是指调用&lt;strong&gt;InitializingBean&lt;/strong&gt;的&lt;em&gt;afterPropertiesSet&lt;/em&gt;或者一个自定义的&lt;em&gt;init-method&lt;/em&gt;。&lt;/p&gt;
     
     </summary>
     
@@ -66,7 +69,7 @@
     <link href="https://lukaicheng.github.io/2017/05/13/Spring5-validation-translate/"/>
     <id>https://lukaicheng.github.io/2017/05/13/Spring5-validation-translate/</id>
     <published>2017-05-13T13:15:12.000Z</published>
-    <updated>2017-05-15T12:37:58.710Z</updated>
+    <updated>2017-05-17T02:17:46.288Z</updated>
     
     <content type="html"><![CDATA[<p>发布于并发编程网，文章<a href="http://ifeve.com/spring-5-validation/" target="_blank" rel="external">链接</a></p>
 <h2 id="5-1-介绍"><a href="#5-1-介绍" class="headerlink" title="5.1 介绍"></a>5.1 介绍</h2><blockquote>
@@ -75,6 +78,7 @@
 <p>正如<a href="#5.8 Spring Validation">5.8 Spring验证</a>所述，应用程序可以选择一次性全局启用Bean验证，并使其专门用于所有的验证需求。</p>
 <p>正如<a href="#5.8.3 Configuring a DataBinder">5.8.3 配置DataBinder</a>所述，应用程序也可以为每个<strong><code>DataBinder</code></strong>实例注册额外的Spring <strong><code>Validator</code></strong>实例，这可能有助于不通过使用注解而插入验证逻辑。</p>
 </blockquote>
+<a id="more"></a>
 <p>考虑将验证作为业务逻辑是有利有弊的，Spring提供了一种不排除利弊的用于验证(和数据绑定)的设计。具体的验证不应该捆绑在web层，应该容易本地化并且它应该能够插入任何可用的验证器。考虑到以上这些，Spring想出了一个<strong><code>Validator</code></strong>接口，它在应用程序的每一层基本都是可用的。数据绑定对于将用户输入动态绑定到应用程序的领域模型上(或者任何你用于处理用户输入的对象)是非常有用的。Spring提供了所谓的<strong><code>DataBinder</code></strong>来处理这个。<strong><code>Validator</code></strong>和<strong><code>DataBinder</code></strong>组成了<strong><code>validation</code></strong>包，其主要用于但并不局限于MVC框架。</p>
 <p><strong><code>BeanWrapper</code></strong>是Spring框架中的一个基本概念且在很多地方使用。然而，你可能并不需要直接使用<strong><code>BeanWrapper</code></strong>。尽管这是参考文档，我们仍然觉得有一些说明需要一步步来。我们将会在本章中解释<strong><code>BeanWrapper</code></strong>，因为你极有可能会在尝试将数据绑定到对象的时候使用它。</p>
 <p>Spring的DataBinder和底层的BeanWrapper都使用PropertyEditor来解析和格式化属性值。<strong><code>PropertyEditor</code></strong>概念是JavaBeans规范的一部分，并会在本章进行说明。Spring 3不仅引入了”core.convert”包来提供一套通用类型转换工具，还有一个高层次的”format”包用于格式化UI字段值。可以将这些新包视作更简单的PropertyEditor替代方式来使用，本章还会对此进行讨论。</p>
@@ -355,8 +359,13 @@
     
     <summary type="html">
     
-      &lt;p&gt;发布于并发编程网，文章&lt;a href=&quot;http://ifeve.com/spring-5-validation/&quot; target=&quot;_blank&quot; rel=&quot;external&quot;&gt;链接&lt;/a&gt;&lt;/p&gt;
-&lt;h2 id=&quot;5-1-介绍&quot;&gt;&lt;a href=&quot;#5-1-介绍&quot; cl
+      &lt;p&gt;发布于并发编程网，文章&lt;a href=&quot;http://ifeve.com/spring-5-validation/&quot;&gt;链接&lt;/a&gt;&lt;/p&gt;
+&lt;h2 id=&quot;5-1-介绍&quot;&gt;&lt;a href=&quot;#5-1-介绍&quot; class=&quot;headerlink&quot; title=&quot;5.1 介绍&quot;&gt;&lt;/a&gt;5.1 介绍&lt;/h2&gt;&lt;blockquote&gt;
+&lt;p&gt;JSR-303/JSR-349 Bean Validation&lt;/p&gt;
+&lt;p&gt;在设置支持方面，Spring Framework 4.0支持Bean Validation 1.0(JSR-303)和Bean Validation 1.1(JSR-349)，也将其改写成了Spring的&lt;strong&gt;&lt;code&gt;Validator&lt;/code&gt;&lt;/strong&gt;接口。&lt;/p&gt;
+&lt;p&gt;正如&lt;a href=&quot;#5.8 Spring Validation&quot;&gt;5.8 Spring验证&lt;/a&gt;所述，应用程序可以选择一次性全局启用Bean验证，并使其专门用于所有的验证需求。&lt;/p&gt;
+&lt;p&gt;正如&lt;a href=&quot;#5.8.3 Configuring a DataBinder&quot;&gt;5.8.3 配置DataBinder&lt;/a&gt;所述，应用程序也可以为每个&lt;strong&gt;&lt;code&gt;DataBinder&lt;/code&gt;&lt;/strong&gt;实例注册额外的Spring &lt;strong&gt;&lt;code&gt;Validator&lt;/code&gt;&lt;/strong&gt;实例，这可能有助于不通过使用注解而插入验证逻辑。&lt;/p&gt;
+&lt;/blockquote&gt;
     
     </summary>
     
@@ -370,10 +379,11 @@
     <link href="https://lukaicheng.github.io/2016/11/17/Reading-JDK-ArrayList/"/>
     <id>https://lukaicheng.github.io/2016/11/17/Reading-JDK-ArrayList/</id>
     <published>2016-11-17T07:26:10.000Z</published>
-    <updated>2017-01-05T06:31:27.947Z</updated>
+    <updated>2017-05-17T02:16:56.276Z</updated>
     
     <content type="html"><![CDATA[<h2 id="1-简介"><a href="#1-简介" class="headerlink" title="1 简介"></a>1 简介</h2><figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">ArrayList</span>&lt;<span class="title">E</span>&gt; <span class="keyword">extends</span> <span class="title">AbstractList</span>&lt;<span class="title">E</span>&gt;</span></div><div class="line">        <span class="keyword">implements</span> <span class="title">List</span>&lt;<span class="title">E</span>&gt;, <span class="title">RandomAccess</span>, <span class="title">Cloneable</span>, <span class="title">java</span>.<span class="title">io</span>.<span class="title">Serializable</span></div></pre></td></tr></table></figure>
 <p>ArrayList是List接口的一种可变长的数组实现，支持随机访问，它允许添加包括<strong>null</strong>在内的所有元素。另外，ArrayList的实现并不是线程安全的，如果有多个线程访问，且其中至少一个会涉及<strong>结构性修改</strong>，最好采用并发控制策略，或者采用<em>Collections.synchronizedList</em>进行包装，防止意外的非同步访问。以下所述基于JDK1.7.0_79源码。</p>
+<a id="more"></a>
 <h2 id="2-基本属性"><a href="#2-基本属性" class="headerlink" title="2 基本属性"></a>2 基本属性</h2><h3 id="2-1-elementData"><a href="#2-1-elementData" class="headerlink" title="2.1 elementData"></a>2.1 elementData</h3><p><strong>elementData</strong>属性是实际存储列表元素的数组缓存区。</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">private</span> <span class="keyword">transient</span> Object[] elementData;</div></pre></td></tr></table></figure>
 <p>尽管从声明上看它是数组类型，然而它的长度却并不固定，这里的意思并不说是可以在数组创建之后再改变它的大小，而是指当进行容量评估时，如果发现需要扩容或者收缩，那么会重新创建一个数组并伴随一次拷贝，然后将<strong>elementData</strong>指向新数组，从而达到扩容或者收缩的目的。</p>
@@ -419,7 +429,8 @@
     
     <summary type="html">
     
-      &lt;h2 id=&quot;1-简介&quot;&gt;&lt;a href=&quot;#1-简介&quot; class=&quot;headerlink&quot; title=&quot;1 简介&quot;&gt;&lt;/a&gt;1 简介&lt;/h2&gt;&lt;figure class=&quot;highlight java&quot;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&quot;gutter&quot;&gt;&lt;pre
+      &lt;h2 id=&quot;1-简介&quot;&gt;&lt;a href=&quot;#1-简介&quot; class=&quot;headerlink&quot; title=&quot;1 简介&quot;&gt;&lt;/a&gt;1 简介&lt;/h2&gt;&lt;figure class=&quot;highlight java&quot;&gt;&lt;table&gt;&lt;tr&gt;&lt;td class=&quot;gutter&quot;&gt;&lt;pre&gt;&lt;div class=&quot;line&quot;&gt;1&lt;/div&gt;&lt;div class=&quot;line&quot;&gt;2&lt;/div&gt;&lt;/pre&gt;&lt;/td&gt;&lt;td class=&quot;code&quot;&gt;&lt;pre&gt;&lt;div class=&quot;line&quot;&gt;&lt;span class=&quot;keyword&quot;&gt;public&lt;/span&gt; &lt;span class=&quot;class&quot;&gt;&lt;span class=&quot;keyword&quot;&gt;class&lt;/span&gt; &lt;span class=&quot;title&quot;&gt;ArrayList&lt;/span&gt;&amp;lt;&lt;span class=&quot;title&quot;&gt;E&lt;/span&gt;&amp;gt; &lt;span class=&quot;keyword&quot;&gt;extends&lt;/span&gt; &lt;span class=&quot;title&quot;&gt;AbstractList&lt;/span&gt;&amp;lt;&lt;span class=&quot;title&quot;&gt;E&lt;/span&gt;&amp;gt;&lt;/div&gt;&lt;div class=&quot;line&quot;&gt;        &lt;span class=&quot;keyword&quot;&gt;implements&lt;/span&gt; &lt;span class=&quot;title&quot;&gt;List&lt;/span&gt;&amp;lt;&lt;span class=&quot;title&quot;&gt;E&lt;/span&gt;&amp;gt;, &lt;span class=&quot;title&quot;&gt;RandomAccess&lt;/span&gt;, &lt;span class=&quot;title&quot;&gt;Cloneable&lt;/span&gt;, &lt;span class=&quot;title&quot;&gt;java&lt;/span&gt;.&lt;span class=&quot;title&quot;&gt;io&lt;/span&gt;.&lt;span class=&quot;title&quot;&gt;Serializable&lt;/span&gt;&lt;/span&gt;&lt;/div&gt;&lt;/pre&gt;&lt;/td&gt;&lt;/tr&gt;&lt;/table&gt;&lt;/figure&gt;
+&lt;p&gt;ArrayList是List接口的一种可变长的数组实现，支持随机访问，它允许添加包括&lt;strong&gt;null&lt;/strong&gt;在内的所有元素。另外，ArrayList的实现并不是线程安全的，如果有多个线程访问，且其中至少一个会涉及&lt;strong&gt;结构性修改&lt;/strong&gt;，最好采用并发控制策略，或者采用&lt;em&gt;Collections.synchronizedList&lt;/em&gt;进行包装，防止意外的非同步访问。以下所述基于JDK1.7.0_79源码。&lt;/p&gt;
     
     </summary>
     
@@ -433,9 +444,10 @@
     <link href="https://lukaicheng.github.io/2016/11/02/ABNF/"/>
     <id>https://lukaicheng.github.io/2016/11/02/ABNF/</id>
     <published>2016-11-02T03:38:02.000Z</published>
-    <updated>2017-01-05T07:37:33.015Z</updated>
+    <updated>2017-05-17T02:16:43.999Z</updated>
     
     <content type="html"><![CDATA[<p>ABNF英文全称是Augmented Backus-Naur Form，这是一种基于BNF的元语言，在很多的Internet technical Specification中用于定义正式语法。</p>
+<a id="more"></a>
 <h2 id="1-规则定义"><a href="#1-规则定义" class="headerlink" title="1 规则定义"></a>1 规则定义</h2><h3 id="1-1-规则形式"><a href="#1-1-规则形式" class="headerlink" title="1.1 规则形式"></a>1.1 规则形式</h3><p>规则定义的形式如下所示</p>
 <blockquote>
 <p>name = elements crlf</p>
@@ -633,7 +645,6 @@
     <summary type="html">
     
       &lt;p&gt;ABNF英文全称是Augmented Backus-Naur Form，这是一种基于BNF的元语言，在很多的Internet technical Specification中用于定义正式语法。&lt;/p&gt;
-&lt;h2 id=&quot;1-规则定义&quot;&gt;&lt;a href=&quot;#1-规则定义&quot; cl
     
     </summary>
     
@@ -645,9 +656,10 @@
     <link href="https://lukaicheng.github.io/2016/10/25/Hive-VLong-to-Java-long/"/>
     <id>https://lukaicheng.github.io/2016/10/25/Hive-VLong-to-Java-long/</id>
     <published>2016-10-25T02:25:39.000Z</published>
-    <updated>2016-11-04T03:34:58.933Z</updated>
+    <updated>2017-05-17T02:16:30.980Z</updated>
     
     <content type="html"><![CDATA[<h2 id="背景缘起"><a href="#背景缘起" class="headerlink" title="背景缘起"></a>背景缘起</h2><p>目前在将hive部分列数据采集到hbase时，由于平台将原来hive表的文件格式从SequenceFile调整到RCFile，因此需要对原来的离线数据采集程序进行修改。然而在实际修改开发过程中，却碰到了程序读取hive列字段，值为乱码的问题。</p>
+<a id="more"></a>
 <h2 id="初步诊断"><a href="#初步诊断" class="headerlink" title="初步诊断"></a>初步诊断</h2><p>由于之前的文件格式是SequenceFile，不管列在hive中数据类型是什么，程序都可以以统一的读取String方式来读取。因此在变更为RCFile方式时，仅仅调整了输入部分，转换依然采用了Bytes.toString方式。</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">static</span> String <span class="title">convertHiveBigint</span><span class="params">(BytesRefWritable brw)</span> <span class="keyword">throws</span> Exception</span>&#123;</div><div class="line">    <span class="keyword">return</span> Bytes.toString(brw.getData(),brw.getStart(),brw.getLength());</div><div class="line">&#125;</div></pre></td></tr></table></figure>
 <p>于是针对乱码的字段，查看了hive表对应列的数据类型，发现是Bigint，那么我想可能不仅仅需要调整输入，最终转换的地方也需要调整为Bytes.toLong。于是将代码修改如下:</p>
@@ -672,7 +684,7 @@
     
     <summary type="html">
     
-      &lt;h2 id=&quot;背景缘起&quot;&gt;&lt;a href=&quot;#背景缘起&quot; class=&quot;headerlink&quot; title=&quot;背景缘起&quot;&gt;&lt;/a&gt;背景缘起&lt;/h2&gt;&lt;p&gt;目前在将hive部分列数据采集到hbase时，由于平台将原来hive表的文件格式从SequenceFile调整到RCFile
+      &lt;h2 id=&quot;背景缘起&quot;&gt;&lt;a href=&quot;#背景缘起&quot; class=&quot;headerlink&quot; title=&quot;背景缘起&quot;&gt;&lt;/a&gt;背景缘起&lt;/h2&gt;&lt;p&gt;目前在将hive部分列数据采集到hbase时，由于平台将原来hive表的文件格式从SequenceFile调整到RCFile，因此需要对原来的离线数据采集程序进行修改。然而在实际修改开发过程中，却碰到了程序读取hive列字段，值为乱码的问题。&lt;/p&gt;
     
     </summary>
     
