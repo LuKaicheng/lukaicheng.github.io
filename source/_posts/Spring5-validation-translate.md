@@ -769,7 +769,7 @@ public class MyModel {
 
 #### Format Annotation API
 
-`org.springframework.format.annotation`包中存在一套可移植(portable)的格式化注解API。请使用@NumberFormat格式化java.lang.Number字段，使用@DateTimeFormat格式化java.util.Date、java.util.Calendar、*java.util.Long(注：此处可能是原文错误，应为java.lang.Long)*或者Joda Time字段。
+`org.springframework.format.annotation`包中存在一套可移植(portable)的格式化注解API。请使用@NumberFormat格式化java.lang.Number字段，使用@DateTimeFormat格式化java.util.Date、java.util.Calendar、java.util.Long(注：此处可能是原文错误，应为java.lang.Long)或者Joda Time字段。
 
 下面这个例子使用@DateTimeFormat将java.util.Date格式化为ISO时间(yyyy-MM-dd)
 
