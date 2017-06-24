@@ -205,7 +205,7 @@ private void readObject(ObjectInputStream stream) throws IOException, ClassNotFo
 - 修改`writeObject`或`readObject`方法使得与原有版本在处理默认字段时方式不同
 - 将类从实现`Serializable`接口 变成实现`Externalizable`接口或者相反情况
 - 将类从非枚举类型变成枚举类型或者相反情况
--  移除`Serializable`接口或`Externalizable`接口
+- 移除`Serializable`接口或`Externalizable`接口
 - 为类增加`writeReplace`或者`readResolve`方法
 
 ### 可兼容变更
@@ -294,6 +294,6 @@ public abstract class EnumSet<E extends Enum<E>> extends AbstractSet<E>
 
 ## 参考
 
-[Java Object Serialization Specification](https://docs.oracle.com/javase/7/docs/api/java/io/Serializable.html)
+[Java Object Serialization Specification](https://docs.oracle.com/javase/7/docs/platform/serialization/spec/serialTOC.html)
 
 [Effective Java中文版(第2版)](https://book.douban.com/subject/3360807/)
