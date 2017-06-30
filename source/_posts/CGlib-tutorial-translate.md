@@ -1,6 +1,6 @@
 ---
-title: [译]CGlib教程
-date: 2017-06-30 13:56:04
+title: CGlib教程[译]
+date: 2017-06-30 17:16:18
 tags: CGlib
 ---
 
