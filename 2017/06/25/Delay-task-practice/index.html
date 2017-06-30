@@ -45,7 +45,7 @@ ga('send', 'pageview');</script></head><body><div id="main"><header><a href="/."
 <li>使用Set作为中转的原因是期望同一个任务只被一个线程消费，用<code>SPOP</code>命令可以实现。当然List也能满足这一点，但最终使用Set的原因是为了避免步骤2中多个程序实例的线程插入相同的任务。</li>
 </ul>
 <h2 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h2><p><a href="https://redislabs.com/ebook/part-2-core-concepts/chapter-6-application-components-in-redis/6-4-task-queues/6-4-2-delayed-tasks/" target="_blank" rel="external">Delayd tasks</a></p>
-</div></article><div class="tags"><a href="/tags/DelayQueue/">DelayQueue</a><a href="/tags/Redis/">Redis</a></div><div class="paginator"><a href="/2017/06/24/Java-serialization-mechanism/" class="next"><span>Next</span><i class="iconfont icon-right"></i></a></div><section id="comments"><div id="disqus_thread"></div></section><script type="text/javascript">var disqus_config = function () {
+</div></article><div class="tags"><a href="/tags/DelayQueue/">DelayQueue</a><a href="/tags/Redis/">Redis</a></div><div class="paginator"><a href="/2017/06/30/CGlib-tutorial-translate/" class="prev"><i class="iconfont icon-left"></i><span> Prev</span></a><a href="/2017/06/24/Java-serialization-mechanism/" class="next"><span>Next</span><i class="iconfont icon-right"></i></a></div><section id="comments"><div id="disqus_thread"></div></section><script type="text/javascript">var disqus_config = function () {
     this.page.url = 'https://lukaicheng.github.io/2017/06/25/Delay-task-practice/';
     this.page.identifier = '2017/06/25/Delay-task-practice/';
     this.page.title = '延迟任务实践总结';
