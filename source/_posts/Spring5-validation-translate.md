@@ -1,5 +1,5 @@
 ---
-title: Spring 5 验证、数据绑定和类型转换[译]
+title: [译]Spring 5 验证、数据绑定和类型转换
 date: 2017-05-13 21:15:12
 tags: Spring
 ---
