@@ -234,7 +234,7 @@ public List<Runnable> shutdownNow() {
 
 在Java并发编程实战一书中，还提出了对于一般的情况可以使用的公式：
 
- N<sub>threads</sub> = N<sub>cpu</sub> * U<sub>cpu</sub> * ( 1 + W / C)
+ N<sub>threads</sub> = N<sub>cpu</sub>  \*  U<sub>cpu</sub> \*   ( 1 + W / C)
 
 其中CPU数目可以通过以下方法获取:
 
