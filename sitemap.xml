@@ -2,6 +2,13 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   
   <url>
+    <loc>https://lukaicheng.github.io/2017/07/19/ThreadPoolExecutor-summary/</loc>
+    
+    <lastmod>2017-07-19T09:50:31.897Z</lastmod>
+    
+  </url>
+  
+  <url>
     <loc>https://lukaicheng.github.io/2017/06/30/CGlib-tutorial-translate/</loc>
     
     <lastmod>2017-06-30T09:25:34.879Z</lastmod>
