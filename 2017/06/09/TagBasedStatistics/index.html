@@ -21,11 +21,11 @@ ga('send', 'pageview');</script></head><body><div id="main"><header><a href="/."
 <h2 id="Redis-bitmap"><a href="#Redis-bitmap" class="headerlink" title="Redis bitmap"></a>Redis bitmap</h2><p>正当我苦恼持久化的问题时，无意中翻到Redis居然提供了类似位图操作的命令：<strong>SETBIT</strong>、<strong>BITCOUNT</strong>、<strong>BITOP</strong>， 而且它还提供了RDB和AOF两种持久化机制，另外由于Redis是内存数据库，在命令响应方面也是非常迅速，可以说非常符合我这个问题的场景。</p>
 <p>不过，当真正用Redis去实现的时候，又碰到了之前忽视的一个细节：手机号是11号数字，超过了Redis位图所能表示的范围，这一点在<strong>SETBIT</strong>命令的文档中有如下说明：</p>
 <blockquote>
-<p>The <em>offset</em> argument is required to be greater than or equal to 0, and smaller than 2^32 (this limits bitmaps to 512MB)</p>
+<p>The <em>offset</em> argument is required to be greater than or equal to 0, and smaller than 2<sup>32</sup> (this limits bitmaps to 512MB)</p>
 </blockquote>
 <p>为了解决这个细节问题，我想出了一个方案：将手机号前两位作为key的一部分，剩下的9位作为值插入到位图里面，由于手机号第一位是1，那么实际上一个标签最多需要10个位图来表示。为了避免用<strong>KEYS</strong>命令扫描获取某个标签所有的key，可以把这些key放到Redis Set中，每次可以先使用<strong>SMEMEBERS</strong>命令获取到所有key。</p>
 <h2 id="Bitmap-VS-Set"><a href="#Bitmap-VS-Set" class="headerlink" title="Bitmap VS Set"></a>Bitmap VS Set</h2><p>在给他人讲述了我的方案之后，由于此设计在实现上确实有些繁琐复杂，有人提出是否考虑直接使用Set来存储所有的用户号码(他用两个百万随机用户号码的Set做交并操作，效率可以接受)。</p>
-<p>于是，我开始对Set方案进行验证，除了处理速度之外，主要关注容量消耗，最终经过测试发现，一百万随机手机号码用Redis Set存储会消耗大概<strong>90MB</strong>内存。回过头来，分析我的Bitmap方案，如果要表达9位数字，那么需要2^30，即128MB(实际测试下来发现也大致符合这个值)，而一个标签最多需要分10个key，所以最大占据<strong>1280MB</strong>。 </p>
+<p>于是，我开始对Set方案进行验证，除了处理速度之外，主要关注容量消耗，最终经过测试发现，一百万随机手机号码用Redis Set存储会消耗大概<strong>90MB</strong>内存。回过头来，分析我的Bitmap方案，如果要表达9位数字，那么需要2<sup>30</sup>，即128MB(实际测试下来发现也大致符合这个值)，而一个标签最多需要分10个key，所以最大占据<strong>1280MB</strong>。 </p>
 <p>诚然Set方案会随着标签下用户群的数量增加容量会随之增加，Bitmap方案的容量较为恒定，然而在这个场景下(最开始假设了一百万的量级，真实场景也大致如此甚至更少)，确实是采用Set会优于Bitmap。</p>
 <h2 id="Cluster-amp-hash-tags"><a href="#Cluster-amp-hash-tags" class="headerlink" title="Cluster &amp; hash tags"></a>Cluster &amp; hash tags</h2><p>尽管决定采用Set方案，在实际编码以及调试过程中，又碰到了Redis的一个限制：如果Redis是采用集群方式部署，假设Set对应的key不属于同个节点，那么就无法透明的支持Set的交并操作。</p>
 <p>引用自Redis Cluster规范：</p>
@@ -36,7 +36,7 @@ ga('send', 'pageview');</script></head><body><div id="main"><header><a href="/."
 <p>幸运的是，Redis提供了一种技巧，可以强制让多个key分配到相同的节点，这种技巧叫做<strong>hash tags</strong>。众所周知，Redis在执行key有关的命令前，先会计算key所对应的slot，不同的key由于计算出来的slot不同，往往就会位于不同的节点。而这个计算有一个短路的地方，假设碰到一个key包含<strong>“{“</strong>和<strong>“}”</strong>，那么只会使用花括号内的子字符串(<em>第一个花括号内的字符串</em>)进行slot的计算，这意味着{foo}bar1和{foo}bar2将会位于同一个节点。想要对这个概念有更详细的了解，可以查看<a href="https://redis.io/topics/cluster-spec#keys-hash-tags" target="_blank" rel="external">Keys hash tags</a>。 </p>
 <p>考虑到可能出现的数据倾斜问题，我们可以将同一大类的标签都指派到相同节点，不同大类的标签指派到不同节点。由于交并操作符合交换律和结合律，那么可以优先计算出相同大类的交并集合，最终通过程序汇总，计算出不同大类的交并集合。这样一来，在考虑数据平衡的情况下，也相应减少网络传输。</p>
 <h2 id="打破原有思维"><a href="#打破原有思维" class="headerlink" title="打破原有思维"></a>打破原有思维</h2><p>到此为止，这似乎是比较可取的方案了，然而当我跳出目前的思路，再重新去回顾整个问题的时候，猛然有一个念头在我脑海里闪过：一定要用手机号对应的数字来设置位图值吗？意识到这一点，我想到整个问题可以从一个新的角度来解决。</p>
-<p>最开始想到采用手机号对应的数字来设置位图信息，是因为在整个系统里手机号可以唯一标识一个用户，然而对此问题而言，本质是关注具体标签下包含哪些用户，至于这些用户是如何确定唯一的，其实并不重要。那么，其实我可以预先做一个映射，将系统中所有的用户号码和一个自增序列进行映射，由于整个系统用户量仅仅只有千万级(且离亿级差距较大)，那么自增序列最大值不会超过100000000(其小于2^27，2^27 bit = 16MB)。如此一来，通过手机号码对应的自增序列数字设置redis位图值，一个key对应的位图就可以存储一个标签所包含的所有用户，且容量仅<strong>16MB</strong>左右，即使标签下用户量从百万级增长到千万级，容量也是恒定的。</p>
+<p>最开始想到采用手机号对应的数字来设置位图信息，是因为在整个系统里手机号可以唯一标识一个用户，然而对此问题而言，本质是关注具体标签下包含哪些用户，至于这些用户是如何确定唯一的，其实并不重要。那么，其实我可以预先做一个映射，将系统中所有的用户号码和一个自增序列进行映射，由于整个系统用户量仅仅只有千万级(且离亿级差距较大)，那么自增序列最大值不会超过100000000(其小于2<sup>27</sup>，2<sup>27</sup> bit = 16MB)。如此一来，通过手机号码对应的自增序列数字设置redis位图值，一个key对应的位图就可以存储一个标签所包含的所有用户，且容量仅<strong>16MB</strong>左右，即使标签下用户量从百万级增长到千万级，容量也是恒定的。</p>
 <h2 id="写在最后"><a href="#写在最后" class="headerlink" title="写在最后"></a>写在最后</h2><p>通过对整个问题持续的思考、同其他人的交流以及自我反思，让我更加深刻意识到分析问题要综合考虑项目实际情况、业务细节以及技术限制，任何好的方案都是通过不断权衡和取舍而做出的选择，这个世界上没有银弹。</p>
 <h2 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h2><p><a href="https://redis.io/commands/setbit" target="_blank" rel="external">Redis SETBIT 命令</a></p>
 <p><a href="https://redis.io/commands/bitcount" target="_blank" rel="external">Redis BITCOUNT 命令</a></p>

@@ -2,9 +2,23 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   
   <url>
+    <loc>https://lukaicheng.github.io/2017/07/23/Comprehend-volatile/</loc>
+    
+    <lastmod>2017-07-23T15:59:32.367Z</lastmod>
+    
+  </url>
+  
+  <url>
     <loc>https://lukaicheng.github.io/2017/07/19/ThreadPoolExecutor-summary/</loc>
     
-    <lastmod>2017-07-19T09:50:31.897Z</lastmod>
+    <lastmod>2017-07-20T07:14:32.940Z</lastmod>
+    
+  </url>
+  
+  <url>
+    <loc>https://lukaicheng.github.io/2017/06/09/TagBasedStatistics/</loc>
+    
+    <lastmod>2017-07-20T07:14:32.921Z</lastmod>
     
   </url>
   
@@ -33,13 +47,6 @@
     <loc>https://lukaicheng.github.io/2017/06/24/Java-serialization-mechanism/</loc>
     
     <lastmod>2017-06-25T07:35:43.867Z</lastmod>
-    
-  </url>
-  
-  <url>
-    <loc>https://lukaicheng.github.io/2017/06/09/TagBasedStatistics/</loc>
-    
-    <lastmod>2017-06-15T06:28:25.632Z</lastmod>
     
   </url>
   

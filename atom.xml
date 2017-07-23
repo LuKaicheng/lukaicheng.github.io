@@ -5,7 +5,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="https://lukaicheng.github.io/"/>
-  <updated>2017-07-19T09:50:31.897Z</updated>
+  <updated>2017-07-23T15:59:32.367Z</updated>
   <id>https://lukaicheng.github.io/</id>
   
   <author>
@@ -16,11 +16,172 @@
   <generator uri="http://hexo.io/">Hexo</generator>
   
   <entry>
+    <title>Java并发基础--理解volatile</title>
+    <link href="https://lukaicheng.github.io/2017/07/23/Comprehend-volatile/"/>
+    <id>https://lukaicheng.github.io/2017/07/23/Comprehend-volatile/</id>
+    <published>2017-07-23T15:52:56.000Z</published>
+    <updated>2017-07-23T15:59:32.367Z</updated>
+    
+    <content type="html"><![CDATA[<h2 id="引言"><a href="#引言" class="headerlink" title="引言"></a>引言</h2><p>众所周知，Java语言是通过共享内存的方式，来实现多线程之间的通信行为。为了保证共享变量的值能在不同线程之间得到一致地更新，可以考虑使用<code>synchronized</code>来确保共享变量的可见性。除此之外，Java语言还提供了另一种机制：<code>volatile</code>。使用<code>volatile</code>同样也提供对共享变量内存可见性的保证，并且它的运行时开销相比<code>sychronized</code>会更少，这种行为是由Java内存模型所确保的。下面就以<code>volatile</code>为中心，梳理并总结一下对内存可见性、重排序、Java内存模型、happens-before规则、内存屏障等一系列概念的理解。</p>
+<a id="more"></a>
+<h2 id="缘由"><a href="#缘由" class="headerlink" title="缘由"></a>缘由</h2><p>首先来了解一下什么是内存可见性，以及为什么会发生这个问题。</p>
+<h3 id="内存可见性"><a href="#内存可见性" class="headerlink" title="内存可见性"></a>内存可见性</h3><p>可见性问题是造成很多Java多线程程序错误的根源，其主要是指在多线程应用中，不同线程对同一个共享变量分别进行读写时，如果没有采用正确的同步行为，那么可能会出现读线程无法适时的看到其他线程写入共享变量的值。</p>
+<p>比如以下这个程序，一个线程重复的调用方法<code>one()</code>，另外一个线程重复调用方法<code>two()</code>：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div></pre></td><td class="code"><pre><div class="line"><span class="class"><span class="keyword">class</span> <span class="title">Test</span> </span>&#123;</div><div class="line">    <span class="keyword">static</span> <span class="keyword">int</span> i = <span class="number">0</span>, j = <span class="number">0</span>;</div><div class="line">    <span class="function"><span class="keyword">static</span> <span class="keyword">void</span> <span class="title">one</span><span class="params">()</span> </span>&#123; i++; j++; &#125;</div><div class="line">    <span class="function"><span class="keyword">static</span> <span class="keyword">void</span> <span class="title">two</span><span class="params">()</span> </span>&#123;</div><div class="line">        System.out.println(<span class="string">"i="</span> + i + <span class="string">" j="</span> + j);</div><div class="line">    &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>那么某些时候方法<code>two()</code>可能打印出来变量<code>j</code>的值大于另一个变量<code>i</code>的值。</p>
+<p>而引发这个问题的原因归结起来主要是两个：<strong>CPU高速缓存和重排序行为</strong></p>
+<h3 id="CPU高速缓存"><a href="#CPU高速缓存" class="headerlink" title="CPU高速缓存"></a>CPU高速缓存</h3><p>由于计算机的存储设备与处理器的运算速度有几个数量级的差距，所以现代计算机系统都不得不加入一层读写速度尽可能接近处理器运算速度的高速缓存来作为内存与处理器之间的缓冲：将运算需要使用到的数据复制到缓存中，让运算能快速进行，当运算结束后再从缓存同步回内存之中。因此在某些时刻，CPU上的缓存数据可能与内存中的数据是不一致的，所以极有可能出现某个线程对共享变量设置的新值还保存在高速缓存中且未被写回到内存，而这时候如果有另一个线程读取该共享变量，就会读取到内存中的旧值。</p>
+<h3 id="重排序行为"><a href="#重排序行为" class="headerlink" title="重排序行为"></a>重排序行为</h3><p>从编译源程序到运行时CPU执行指令，出于性能方面的考虑，这个过程中常常会对原始程序指令做出重排序行为，主要包括<strong>编译器重排序</strong>和<strong>处理器重排序</strong>：</p>
+<ul>
+<li><strong>编译器重排序</strong>：编译器在编译阶段可以在不改变程序语义的情况下，对生成的目标代码进行重新排列。</li>
+<li><strong>处理器重排序</strong>：现代处理器采用指令级并行技术将多条指令重叠执行，如果不存在数据依赖性，处理器可以改变语句对应机器指令的执行顺序。</li>
+</ul>
+<p>正是由于存在这种情况，如果没有正确的同步机制保证，程序可能出现意想不到的行为。</p>
+<h2 id="方案"><a href="#方案" class="headerlink" title="方案"></a>方案</h2><p>明确了可见性问题极其原因，那么是时候了解<code>volatile</code>背后的Java内存模型，以及其如何确保<code>volatile</code>的内存可见性。</p>
+<h3 id="Java内存模型概述"><a href="#Java内存模型概述" class="headerlink" title="Java内存模型概述"></a>Java内存模型概述</h3><p>由于Java倡导”一次编写，到处运行“的理念，为了屏蔽各种硬件和操作系统的内存访问差异，以实现让Java程序在各种平台下都能达到一致的内存访问效果，Java语言为程序员以及JVM实现者提供了一种抽象的内存模型规范，下面是引用自规范的原话：</p>
+<blockquote>
+<p>A <em>memory model</em> describes, given a program and an execution trace of that program, whether the execution trace is a legal execution of the program. The Java programming language memory model works by examining each read in an execution trace and checking that the write observed by that read is valid according to certain rules.</p>
+<p>The memory model describes possible behaviors of a program. An implementation is free to produce any code it likes, as long as all resulting executions of a program produce a result that can be predicted by the memory model.</p>
+</blockquote>
+<p>简而言之，Java内存模型主要目标就是<strong>确保程序执行可以产生可预期的行为</strong>。</p>
+<p>下图先给出其抽象模型：</p>
+<p><img src="https://raw.githubusercontent.com/LuKaicheng/lukaicheng.github.io/hexo/source/images/java_memory_model.png" alt="Java内存模型"></p>
+<p>从抽象角度看，JMM定义了线程和主内存之间的抽象关系：线程之间的共享变量存储在主内存中，每个线程都有一个私有的本地内存，本地内存中存储该线程读写所需的共享变量的副本，线程之间的通信由JMM控制，其决定一个线程对共享变量的写入何时对另一个线程可见。</p>
+<p>了解了Java内存模型的基本概念和抽象视图之后，接下来是时候了解<strong>happens-before</strong>概念了。</p>
+<h3 id="Happens-Before"><a href="#Happens-Before" class="headerlink" title="Happens-Before"></a>Happens-Before</h3><p>JSR-133使用happens-before的概念来指定两个操作之间的执行顺序，其中两个操作可以在一个线程内，也可以在不同线程之间。其主要定义如下：</p>
+<ol>
+<li>如果一个操作happens-before另一个操作，那么第一个操作的执行结果将对第二个操作<strong>可见</strong>，并且第一个操作的执行顺序排在第二个操作之前。(<em>对程序员的承诺</em>)</li>
+<li>两个操作之间存在happens-before关系，并不意味着Java平台的具体实现必须要按照happens-before关系指定的顺序来执行，如果重排序之后的执行结果与按照happens-before关系执行的结果一致，那么这种重排序并不非法。(<em>对JMM实现者的约束</em>)</li>
+</ol>
+<p>java内存模型提供了一套happens-before规则来指导程序员如何定义程序的操作顺序以提供正确的内存可见性，其中就有一条关于<code>volatile</code>的规则：</p>
+<p><strong>volatile变量规则 - 对一个volatile域的写，happens-before任意后续对这个volatile域的读。</strong></p>
+<p>至此，对于java内存模型如何保证<code>volatile</code>变量的内存可见性，我们终于找到了依据。但是每个程序员内心都应该是充满好奇心，所以接下来，我们再稍微了解一下这条happens-before规则是如何保证<code>volatile</code>的语义。</p>
+<h3 id="重排序规则"><a href="#重排序规则" class="headerlink" title="重排序规则"></a>重排序规则</h3><p>前面我们已经知道，引发内存可见性的原因主要之一可能是重排序问题，因此为了实现<code>volatile</code>的内存语义，Java内存模型指定了<code>volatile</code>重排序规则表以禁止某些指令的重排序：</p>
+<table>
+<thead>
+<tr>
+<th><strong>是否能重排序</strong></th>
+<th><em>第二个操作</em></th>
+<th><em>第二个操作</em></th>
+<th><em>第二个操作</em></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><em>第一个操作</em></td>
+<td>普通读写</td>
+<td>volatile读</td>
+<td>volatile写</td>
+</tr>
+<tr>
+<td>普通读写</td>
+<td></td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>volatile读</td>
+<td>No</td>
+<td>No</td>
+<td>No</td>
+</tr>
+<tr>
+<td>volatile写</td>
+<td></td>
+<td>No</td>
+<td>No</td>
+</tr>
+</tbody>
+</table>
+<p>这个规则表明确规定了针对<code>volatile</code>域的读写和普通读写之间的重排序行为是否被允许，根据这个规则表，编译器就可以在生成字节码时，通过往指令序列中插入特定的内存屏障来禁止关于<code>volatile</code>域的特定类型的重排序行为。</p>
+<h3 id="内存屏障"><a href="#内存屏障" class="headerlink" title="内存屏障"></a>内存屏障</h3><p>内存屏障的含义在维基百科里定义如下：</p>
+<blockquote>
+<p><strong>内存屏障</strong>，也称<strong>内存栅栏</strong>，<strong>内存栅障</strong>，<strong>屏障指令</strong>等，是一类<a href="https://zh.wikipedia.org/wiki/%E5%90%8C%E6%AD%A5%E5%B1%8F%E9%9A%9C" target="_blank" rel="external">同步屏障</a>指令，是CPU或编译器在对内存随机访问的操作中的一个同步点，使得此点之前的所有读写操作都执行后才可以开始执行此点之后的操作。语义上，内存屏障之前的所有写操作都要写入内存；内存屏障之后的读操作都可以获得同步屏障之前的写操作的结果</p>
+</blockquote>
+<p>Java内存模型把内存屏障分为4类：</p>
+<ul>
+<li><strong>LoadLoad</strong>(<em>Load1;LoadLoad;Load2</em>)：确保Load1数据的装载先于Load2及后续装载指令的装载</li>
+<li><strong>StoreStore</strong>(<em>Store1;StoreStore;Store2</em>)：确保Store1数据对其他处理器可见(刷新到内存)先于Store2及 所有后续存储指令的存储</li>
+<li><strong>LoadStore</strong>(<em>Load1;LoadStore;Store2</em>)：确保Load1数据装载先于Store2及所有后续的存储指令刷新到内存</li>
+<li><strong>StoreLoad</strong>(<em>Store1;StoreLoad;Load2</em>)：确保Store1数据对其他处理变得可见(刷新到内存)先于Load2及所有后续装载指令的装载。使该屏障之前的所有内存访问指令(存储和装载指令)完成之后，才执行该屏障之后的内存访问指令。</li>
+</ul>
+<p>针对<code>volatile</code>域的读写会依据下表所示插入内存屏障：</p>
+<table>
+<thead>
+<tr>
+<th><strong>需要插入的屏障</strong></th>
+<th><em>第二个操作</em></th>
+<th><em>第二个操作</em></th>
+<th><em>第二个操作</em></th>
+<th><em>第二个操作</em></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><em>第一个操作</em></td>
+<td>普通读</td>
+<td>普通写</td>
+<td>volatile读</td>
+<td>volatile写</td>
+</tr>
+<tr>
+<td>普通读</td>
+<td></td>
+<td></td>
+<td></td>
+<td><code>LoadStore</code></td>
+</tr>
+<tr>
+<td>普通写</td>
+<td></td>
+<td></td>
+<td></td>
+<td><code>StoreStore</code></td>
+</tr>
+<tr>
+<td>volatile读</td>
+<td><code>LoadLoad</code></td>
+<td><code>LoadStore</code></td>
+<td><code>LoadLoad</code></td>
+<td><code>LoadStore</code></td>
+</tr>
+<tr>
+<td>volatile写</td>
+<td></td>
+<td></td>
+<td><code>StoreLoad</code></td>
+<td><code>StoreStore</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>至此，从<code>volatile</code>角度看去，整个因果线条已经相当明显。首先给出内存可见性的定义，进一步分析其可能引发的原因，从而转到了为解决内存可见性问题而提出的Java内存模型，结合<code>volatile</code>引出了该内存模型的核心概念：happens-before，随后分析组成<code>volatile</code>这条happens-before规则背后的重排序规则，最终以内存屏障概念收尾。本文并不强求面面俱到，而是以自己理解<code>volatile</code>的方式来讲诉其中的因果关系，个人感觉对于学习这一块的相关概念是一种比较好的思路，如果需要更深刻了解每一种概念，可以查看参考中的一些文档或者自行搜索。</p>
+<h2 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h2><p><a href="https://docs.oracle.com/javase/specs/jls/se8/html/jls-8.html#jls-8.3.1.4" target="_blank" rel="external">volatile Fields</a></p>
+<p><a href="https://docs.oracle.com/javase/specs/jls/se8/html/jls-17.html#jls-17.4" target="_blank" rel="external">Memory Model</a></p>
+<p><a href="http://gee.cs.oswego.edu/dl/jmm/cookbook.html" target="_blank" rel="external">The JSR-133 Cookbook for Compiler Writers</a></p>
+<p><a href="https://book.douban.com/subject/24722612/" target="_blank" rel="external">深入理解Java虚拟机</a></p>
+<p><a href="https://book.douban.com/subject/26591326/" target="_blank" rel="external">Java并发编程的艺术</a></p>
+<p><a href="https://zh.wikipedia.org/wiki/%E5%86%85%E5%AD%98%E5%B1%8F%E9%9A%9C" target="_blank" rel="external">内存屏障</a></p>
+]]></content>
+    
+    <summary type="html">
+    
+      &lt;h2 id=&quot;引言&quot;&gt;&lt;a href=&quot;#引言&quot; class=&quot;headerlink&quot; title=&quot;引言&quot;&gt;&lt;/a&gt;引言&lt;/h2&gt;&lt;p&gt;众所周知，Java语言是通过共享内存的方式，来实现多线程之间的通信行为。为了保证共享变量的值能在不同线程之间得到一致地更新，可以考虑使用&lt;code&gt;synchronized&lt;/code&gt;来确保共享变量的可见性。除此之外，Java语言还提供了另一种机制：&lt;code&gt;volatile&lt;/code&gt;。使用&lt;code&gt;volatile&lt;/code&gt;同样也提供对共享变量内存可见性的保证，并且它的运行时开销相比&lt;code&gt;sychronized&lt;/code&gt;会更少，这种行为是由Java内存模型所确保的。下面就以&lt;code&gt;volatile&lt;/code&gt;为中心，梳理并总结一下对内存可见性、重排序、Java内存模型、happens-before规则、内存屏障等一系列概念的理解。&lt;/p&gt;
+    
+    </summary>
+    
+    
+      <category term="volatile" scheme="https://lukaicheng.github.io/tags/volatile/"/>
+    
+      <category term="JUC" scheme="https://lukaicheng.github.io/tags/JUC/"/>
+    
+  </entry>
+  
+  <entry>
     <title>Java线程池总结</title>
     <link href="https://lukaicheng.github.io/2017/07/19/ThreadPoolExecutor-summary/"/>
     <id>https://lukaicheng.github.io/2017/07/19/ThreadPoolExecutor-summary/</id>
     <published>2017-07-19T09:50:41.000Z</published>
-    <updated>2017-07-19T09:50:31.897Z</updated>
+    <updated>2017-07-20T07:14:32.940Z</updated>
     
     <content type="html"><![CDATA[<h2 id="引言"><a href="#引言" class="headerlink" title="引言"></a>引言</h2><p><code>java.util.concurrent.ThreadPoolExecutor</code>是JDK提供的一个线程池实现，在实际项目中是最 常用的JUC组件之一。通过合理使用线程池，可以复用已创建的线程，这不仅能够降低创建和销毁线程的整体消耗，还能够更快速地响应任务，并且通过线程池统一分配、管理、监控，也可以避免无限制地创建线程而造成的系统故障。</p>
 <a id="more"></a>
@@ -80,7 +241,7 @@
 <figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div><div class="line">8</div><div class="line">9</div><div class="line">10</div><div class="line">11</div><div class="line">12</div><div class="line">13</div><div class="line">14</div><div class="line">15</div><div class="line">16</div><div class="line">17</div><div class="line">18</div><div class="line">19</div><div class="line">20</div><div class="line">21</div></pre></td><td class="code"><pre><div class="line"><span class="function"><span class="keyword">public</span> List&lt;Runnable&gt; <span class="title">shutdownNow</span><span class="params">()</span> </span>&#123;</div><div class="line">	List&lt;Runnable&gt; tasks;</div><div class="line">	<span class="keyword">final</span> ReentrantLock mainLock = <span class="keyword">this</span>.mainLock;</div><div class="line">	<span class="comment">//使用全局锁进行锁定 </span></div><div class="line">	mainLock.lock();</div><div class="line">	<span class="keyword">try</span> &#123;</div><div class="line">		checkShutdownAccess();</div><div class="line">		<span class="comment">//修改线程池状态为STOP</span></div><div class="line">		advanceRunState(STOP);</div><div class="line">		<span class="comment">//尝试中断所有的工作线程</span></div><div class="line">		interruptWorkers();</div><div class="line">		<span class="comment">//将任务队列排空</span></div><div class="line">		tasks = drainQueue();</div><div class="line">	&#125; <span class="keyword">finally</span> &#123;</div><div class="line">		<span class="comment">//释放全局锁</span></div><div class="line">		mainLock.unlock();</div><div class="line">	&#125;</div><div class="line">	<span class="comment">//尝试终结线程池</span></div><div class="line">	tryTerminate();</div><div class="line">	<span class="keyword">return</span> tasks;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
 <h2 id="线程数配置"><a href="#线程数配置" class="headerlink" title="线程数配置"></a>线程数配置</h2><p>对于计算密集型任务，在拥有N<sub>cpu</sub>个处理器的系统上，可以考虑将线程池大小设为N<sub>cpu</sub>+1。对于IO密集型任务，则可以考虑将线程池设置为2 * N<sub>cpu</sub>。</p>
 <p>在Java并发编程实战一书中，还提出了对于一般的情况可以使用的公式：</p>
-<p> N<sub>threads</sub> = N<sub>cpu</sub> <em> U<sub>cpu</sub> </em> ( 1 + W / C)</p>
+<p> N<sub>threads</sub> = N<sub>cpu</sub>  *  U<sub>cpu</sub> *   ( 1 + W / C)</p>
 <p>其中CPU数目可以通过以下方法获取:</p>
 <figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div></pre></td><td class="code"><pre><div class="line"><span class="keyword">int</span> N_CPUS = Runtime.getRuntime().availableProcessors();</div></pre></td></tr></table></figure>
 <p>U<sub>cpu</sub>表示CPU利用率，可能需要在某个基准负载下进行监控。</p>
@@ -355,7 +516,7 @@
     <link href="https://lukaicheng.github.io/2017/06/09/TagBasedStatistics/"/>
     <id>https://lukaicheng.github.io/2017/06/09/TagBasedStatistics/</id>
     <published>2017-06-09T12:15:41.000Z</published>
-    <updated>2017-06-15T06:28:25.632Z</updated>
+    <updated>2017-07-20T07:14:32.921Z</updated>
     
     <content type="html"><![CDATA[<h2 id="问题背景"><a href="#问题背景" class="headerlink" title="问题背景"></a>问题背景</h2><p>最近在做项目过程中，碰到了这样一个需求：当前台页面勾选偏好标签的时候，后端服务需要快速给出标签对应的人群数量。如果仅仅只是单个标签的话，那么问题是非常简单的，然而现实是残酷的，我必须考虑基于多个标签勾选的交并集统计情况。</p>
 <p>在此，先做一个假设，每个标签后面对应的人群数量是一百万，当然有可能人群会有重叠，而后续的讨论都是基于此数量级展开。</p>
@@ -367,11 +528,11 @@
 <h2 id="Redis-bitmap"><a href="#Redis-bitmap" class="headerlink" title="Redis bitmap"></a>Redis bitmap</h2><p>正当我苦恼持久化的问题时，无意中翻到Redis居然提供了类似位图操作的命令：<strong>SETBIT</strong>、<strong>BITCOUNT</strong>、<strong>BITOP</strong>， 而且它还提供了RDB和AOF两种持久化机制，另外由于Redis是内存数据库，在命令响应方面也是非常迅速，可以说非常符合我这个问题的场景。</p>
 <p>不过，当真正用Redis去实现的时候，又碰到了之前忽视的一个细节：手机号是11号数字，超过了Redis位图所能表示的范围，这一点在<strong>SETBIT</strong>命令的文档中有如下说明：</p>
 <blockquote>
-<p>The <em>offset</em> argument is required to be greater than or equal to 0, and smaller than 2^32 (this limits bitmaps to 512MB)</p>
+<p>The <em>offset</em> argument is required to be greater than or equal to 0, and smaller than 2<sup>32</sup> (this limits bitmaps to 512MB)</p>
 </blockquote>
 <p>为了解决这个细节问题，我想出了一个方案：将手机号前两位作为key的一部分，剩下的9位作为值插入到位图里面，由于手机号第一位是1，那么实际上一个标签最多需要10个位图来表示。为了避免用<strong>KEYS</strong>命令扫描获取某个标签所有的key，可以把这些key放到Redis Set中，每次可以先使用<strong>SMEMEBERS</strong>命令获取到所有key。</p>
 <h2 id="Bitmap-VS-Set"><a href="#Bitmap-VS-Set" class="headerlink" title="Bitmap VS Set"></a>Bitmap VS Set</h2><p>在给他人讲述了我的方案之后，由于此设计在实现上确实有些繁琐复杂，有人提出是否考虑直接使用Set来存储所有的用户号码(他用两个百万随机用户号码的Set做交并操作，效率可以接受)。</p>
-<p>于是，我开始对Set方案进行验证，除了处理速度之外，主要关注容量消耗，最终经过测试发现，一百万随机手机号码用Redis Set存储会消耗大概<strong>90MB</strong>内存。回过头来，分析我的Bitmap方案，如果要表达9位数字，那么需要2^30，即128MB(实际测试下来发现也大致符合这个值)，而一个标签最多需要分10个key，所以最大占据<strong>1280MB</strong>。 </p>
+<p>于是，我开始对Set方案进行验证，除了处理速度之外，主要关注容量消耗，最终经过测试发现，一百万随机手机号码用Redis Set存储会消耗大概<strong>90MB</strong>内存。回过头来，分析我的Bitmap方案，如果要表达9位数字，那么需要2<sup>30</sup>，即128MB(实际测试下来发现也大致符合这个值)，而一个标签最多需要分10个key，所以最大占据<strong>1280MB</strong>。 </p>
 <p>诚然Set方案会随着标签下用户群的数量增加容量会随之增加，Bitmap方案的容量较为恒定，然而在这个场景下(最开始假设了一百万的量级，真实场景也大致如此甚至更少)，确实是采用Set会优于Bitmap。</p>
 <h2 id="Cluster-amp-hash-tags"><a href="#Cluster-amp-hash-tags" class="headerlink" title="Cluster &amp; hash tags"></a>Cluster &amp; hash tags</h2><p>尽管决定采用Set方案，在实际编码以及调试过程中，又碰到了Redis的一个限制：如果Redis是采用集群方式部署，假设Set对应的key不属于同个节点，那么就无法透明的支持Set的交并操作。</p>
 <p>引用自Redis Cluster规范：</p>
@@ -382,7 +543,7 @@
 <p>幸运的是，Redis提供了一种技巧，可以强制让多个key分配到相同的节点，这种技巧叫做<strong>hash tags</strong>。众所周知，Redis在执行key有关的命令前，先会计算key所对应的slot，不同的key由于计算出来的slot不同，往往就会位于不同的节点。而这个计算有一个短路的地方，假设碰到一个key包含<strong>“{“</strong>和<strong>“}”</strong>，那么只会使用花括号内的子字符串(<em>第一个花括号内的字符串</em>)进行slot的计算，这意味着{foo}bar1和{foo}bar2将会位于同一个节点。想要对这个概念有更详细的了解，可以查看<a href="https://redis.io/topics/cluster-spec#keys-hash-tags" target="_blank" rel="external">Keys hash tags</a>。 </p>
 <p>考虑到可能出现的数据倾斜问题，我们可以将同一大类的标签都指派到相同节点，不同大类的标签指派到不同节点。由于交并操作符合交换律和结合律，那么可以优先计算出相同大类的交并集合，最终通过程序汇总，计算出不同大类的交并集合。这样一来，在考虑数据平衡的情况下，也相应减少网络传输。</p>
 <h2 id="打破原有思维"><a href="#打破原有思维" class="headerlink" title="打破原有思维"></a>打破原有思维</h2><p>到此为止，这似乎是比较可取的方案了，然而当我跳出目前的思路，再重新去回顾整个问题的时候，猛然有一个念头在我脑海里闪过：一定要用手机号对应的数字来设置位图值吗？意识到这一点，我想到整个问题可以从一个新的角度来解决。</p>
-<p>最开始想到采用手机号对应的数字来设置位图信息，是因为在整个系统里手机号可以唯一标识一个用户，然而对此问题而言，本质是关注具体标签下包含哪些用户，至于这些用户是如何确定唯一的，其实并不重要。那么，其实我可以预先做一个映射，将系统中所有的用户号码和一个自增序列进行映射，由于整个系统用户量仅仅只有千万级(且离亿级差距较大)，那么自增序列最大值不会超过100000000(其小于2^27，2^27 bit = 16MB)。如此一来，通过手机号码对应的自增序列数字设置redis位图值，一个key对应的位图就可以存储一个标签所包含的所有用户，且容量仅<strong>16MB</strong>左右，即使标签下用户量从百万级增长到千万级，容量也是恒定的。</p>
+<p>最开始想到采用手机号对应的数字来设置位图信息，是因为在整个系统里手机号可以唯一标识一个用户，然而对此问题而言，本质是关注具体标签下包含哪些用户，至于这些用户是如何确定唯一的，其实并不重要。那么，其实我可以预先做一个映射，将系统中所有的用户号码和一个自增序列进行映射，由于整个系统用户量仅仅只有千万级(且离亿级差距较大)，那么自增序列最大值不会超过100000000(其小于2<sup>27</sup>，2<sup>27</sup> bit = 16MB)。如此一来，通过手机号码对应的自增序列数字设置redis位图值，一个key对应的位图就可以存储一个标签所包含的所有用户，且容量仅<strong>16MB</strong>左右，即使标签下用户量从百万级增长到千万级，容量也是恒定的。</p>
 <h2 id="写在最后"><a href="#写在最后" class="headerlink" title="写在最后"></a>写在最后</h2><p>通过对整个问题持续的思考、同其他人的交流以及自我反思，让我更加深刻意识到分析问题要综合考虑项目实际情况、业务细节以及技术限制，任何好的方案都是通过不断权衡和取舍而做出的选择，这个世界上没有银弹。</p>
 <h2 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h2><p><a href="https://redis.io/commands/setbit" target="_blank" rel="external">Redis SETBIT 命令</a></p>
 <p><a href="https://redis.io/commands/bitcount" target="_blank" rel="external">Redis BITCOUNT 命令</a></p>

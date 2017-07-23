@@ -1,0 +1,165 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="author" content="Lucifer"><meta name="description" content="引言众所周知，Java语言是通过共享内存的方式，来实现多线程之间的通信行为。为了保证共享变量的值能在不同线程之间得到一致地更新，可以考虑使用synchronized来确保共享变量的可见性。除此之外，Java语言还提供了另一种机制：volatile。使用volatile同样也提供对"><meta name="keywords" content="volatile,JUC"><title>Java并发基础--理解volatile · 羽逝神伤</title><link rel="icon" href="/favicon.ico"><link rel="canonical" href="https://lukaicheng.github.io/2017/07/23/Comprehend-volatile/"><link rel="alternate" href="/atom.xml" title="羽逝神伤"><link rel="stylesheet" href="/fonts/iconfont/iconfont.css"><link rel="stylesheet" href="/css/style.css"><script type="text/javascript">var _hmt = _hmt || [];
+(function() {
+  var hm = document.createElement("script");
+  hm.src = "//hm.baidu.com/hm.js?Your baidu Analytics ID";
+  var s = document.getElementsByTagName("script")[0]; 
+  s.parentNode.insertBefore(hm, s);
+})();
+</script><script type="text/javascript">(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+(i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+})(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+ga('create', 'Your Google Analytics ID', 'auto');
+ga('send', 'pageview');</script></head><body><div id="main"><header><a href="/." class="logo">羽逝神伤</a><ul class="nav"><li class="nav-link"><a href="/" target="_self">Home</a></li><li class="nav-link"><a href="/archives/" target="_self">Archives</a></li><li class="nav-link"><a href="/tags/" target="_self">Tags</a></li></ul></header><section id="container"><article class="post"><h1 class="post-title">Java并发基础--理解volatile</h1><span class="post-time">Jul 23, 2017</span><div id="sidebar" class="post-sidebar"><h3 class="heading">Contents</h3><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#引言"><span class="toc-text">引言</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#缘由"><span class="toc-text">缘由</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#内存可见性"><span class="toc-text">内存可见性</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#CPU高速缓存"><span class="toc-text">CPU高速缓存</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#重排序行为"><span class="toc-text">重排序行为</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#方案"><span class="toc-text">方案</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#Java内存模型概述"><span class="toc-text">Java内存模型概述</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#Happens-Before"><span class="toc-text">Happens-Before</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#重排序规则"><span class="toc-text">重排序规则</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#内存屏障"><span class="toc-text">内存屏障</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#总结"><span class="toc-text">总结</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#参考"><span class="toc-text">参考</span></a></li></ol></div><div class="post-content"><h2 id="引言"><a href="#引言" class="headerlink" title="引言"></a>引言</h2><p>众所周知，Java语言是通过共享内存的方式，来实现多线程之间的通信行为。为了保证共享变量的值能在不同线程之间得到一致地更新，可以考虑使用<code>synchronized</code>来确保共享变量的可见性。除此之外，Java语言还提供了另一种机制：<code>volatile</code>。使用<code>volatile</code>同样也提供对共享变量内存可见性的保证，并且它的运行时开销相比<code>sychronized</code>会更少，这种行为是由Java内存模型所确保的。下面就以<code>volatile</code>为中心，梳理并总结一下对内存可见性、重排序、Java内存模型、happens-before规则、内存屏障等一系列概念的理解。</p>
+<a id="more"></a>
+<h2 id="缘由"><a href="#缘由" class="headerlink" title="缘由"></a>缘由</h2><p>首先来了解一下什么是内存可见性，以及为什么会发生这个问题。</p>
+<h3 id="内存可见性"><a href="#内存可见性" class="headerlink" title="内存可见性"></a>内存可见性</h3><p>可见性问题是造成很多Java多线程程序错误的根源，其主要是指在多线程应用中，不同线程对同一个共享变量分别进行读写时，如果没有采用正确的同步行为，那么可能会出现读线程无法适时的看到其他线程写入共享变量的值。</p>
+<p>比如以下这个程序，一个线程重复的调用方法<code>one()</code>，另外一个线程重复调用方法<code>two()</code>：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div><div class="line">3</div><div class="line">4</div><div class="line">5</div><div class="line">6</div><div class="line">7</div></pre></td><td class="code"><pre><div class="line"><span class="class"><span class="keyword">class</span> <span class="title">Test</span> </span>&#123;</div><div class="line">    <span class="keyword">static</span> <span class="keyword">int</span> i = <span class="number">0</span>, j = <span class="number">0</span>;</div><div class="line">    <span class="function"><span class="keyword">static</span> <span class="keyword">void</span> <span class="title">one</span><span class="params">()</span> </span>&#123; i++; j++; &#125;</div><div class="line">    <span class="function"><span class="keyword">static</span> <span class="keyword">void</span> <span class="title">two</span><span class="params">()</span> </span>&#123;</div><div class="line">        System.out.println(<span class="string">"i="</span> + i + <span class="string">" j="</span> + j);</div><div class="line">    &#125;</div><div class="line">&#125;</div></pre></td></tr></table></figure>
+<p>那么某些时候方法<code>two()</code>可能打印出来变量<code>j</code>的值大于另一个变量<code>i</code>的值。</p>
+<p>而引发这个问题的原因归结起来主要是两个：<strong>CPU高速缓存和重排序行为</strong></p>
+<h3 id="CPU高速缓存"><a href="#CPU高速缓存" class="headerlink" title="CPU高速缓存"></a>CPU高速缓存</h3><p>由于计算机的存储设备与处理器的运算速度有几个数量级的差距，所以现代计算机系统都不得不加入一层读写速度尽可能接近处理器运算速度的高速缓存来作为内存与处理器之间的缓冲：将运算需要使用到的数据复制到缓存中，让运算能快速进行，当运算结束后再从缓存同步回内存之中。因此在某些时刻，CPU上的缓存数据可能与内存中的数据是不一致的，所以极有可能出现某个线程对共享变量设置的新值还保存在高速缓存中且未被写回到内存，而这时候如果有另一个线程读取该共享变量，就会读取到内存中的旧值。</p>
+<h3 id="重排序行为"><a href="#重排序行为" class="headerlink" title="重排序行为"></a>重排序行为</h3><p>从编译源程序到运行时CPU执行指令，出于性能方面的考虑，这个过程中常常会对原始程序指令做出重排序行为，主要包括<strong>编译器重排序</strong>和<strong>处理器重排序</strong>：</p>
+<ul>
+<li><strong>编译器重排序</strong>：编译器在编译阶段可以在不改变程序语义的情况下，对生成的目标代码进行重新排列。</li>
+<li><strong>处理器重排序</strong>：现代处理器采用指令级并行技术将多条指令重叠执行，如果不存在数据依赖性，处理器可以改变语句对应机器指令的执行顺序。</li>
+</ul>
+<p>正是由于存在这种情况，如果没有正确的同步机制保证，程序可能出现意想不到的行为。</p>
+<h2 id="方案"><a href="#方案" class="headerlink" title="方案"></a>方案</h2><p>明确了可见性问题极其原因，那么是时候了解<code>volatile</code>背后的Java内存模型，以及其如何确保<code>volatile</code>的内存可见性。</p>
+<h3 id="Java内存模型概述"><a href="#Java内存模型概述" class="headerlink" title="Java内存模型概述"></a>Java内存模型概述</h3><p>由于Java倡导”一次编写，到处运行“的理念，为了屏蔽各种硬件和操作系统的内存访问差异，以实现让Java程序在各种平台下都能达到一致的内存访问效果，Java语言为程序员以及JVM实现者提供了一种抽象的内存模型规范，下面是引用自规范的原话：</p>
+<blockquote>
+<p>A <em>memory model</em> describes, given a program and an execution trace of that program, whether the execution trace is a legal execution of the program. The Java programming language memory model works by examining each read in an execution trace and checking that the write observed by that read is valid according to certain rules.</p>
+<p>The memory model describes possible behaviors of a program. An implementation is free to produce any code it likes, as long as all resulting executions of a program produce a result that can be predicted by the memory model.</p>
+</blockquote>
+<p>简而言之，Java内存模型主要目标就是<strong>确保程序执行可以产生可预期的行为</strong>。</p>
+<p>下图先给出其抽象模型：</p>
+<p><img src="https://raw.githubusercontent.com/LuKaicheng/lukaicheng.github.io/hexo/source/images/java_memory_model.png" alt="Java内存模型"></p>
+<p>从抽象角度看，JMM定义了线程和主内存之间的抽象关系：线程之间的共享变量存储在主内存中，每个线程都有一个私有的本地内存，本地内存中存储该线程读写所需的共享变量的副本，线程之间的通信由JMM控制，其决定一个线程对共享变量的写入何时对另一个线程可见。</p>
+<p>了解了Java内存模型的基本概念和抽象视图之后，接下来是时候了解<strong>happens-before</strong>概念了。</p>
+<h3 id="Happens-Before"><a href="#Happens-Before" class="headerlink" title="Happens-Before"></a>Happens-Before</h3><p>JSR-133使用happens-before的概念来指定两个操作之间的执行顺序，其中两个操作可以在一个线程内，也可以在不同线程之间。其主要定义如下：</p>
+<ol>
+<li>如果一个操作happens-before另一个操作，那么第一个操作的执行结果将对第二个操作<strong>可见</strong>，并且第一个操作的执行顺序排在第二个操作之前。(<em>对程序员的承诺</em>)</li>
+<li>两个操作之间存在happens-before关系，并不意味着Java平台的具体实现必须要按照happens-before关系指定的顺序来执行，如果重排序之后的执行结果与按照happens-before关系执行的结果一致，那么这种重排序并不非法。(<em>对JMM实现者的约束</em>)</li>
+</ol>
+<p>java内存模型提供了一套happens-before规则来指导程序员如何定义程序的操作顺序以提供正确的内存可见性，其中就有一条关于<code>volatile</code>的规则：</p>
+<p><strong>volatile变量规则 - 对一个volatile域的写，happens-before任意后续对这个volatile域的读。</strong></p>
+<p>至此，对于java内存模型如何保证<code>volatile</code>变量的内存可见性，我们终于找到了依据。但是每个程序员内心都应该是充满好奇心，所以接下来，我们再稍微了解一下这条happens-before规则是如何保证<code>volatile</code>的语义。</p>
+<h3 id="重排序规则"><a href="#重排序规则" class="headerlink" title="重排序规则"></a>重排序规则</h3><p>前面我们已经知道，引发内存可见性的原因主要之一可能是重排序问题，因此为了实现<code>volatile</code>的内存语义，Java内存模型指定了<code>volatile</code>重排序规则表以禁止某些指令的重排序：</p>
+<table>
+<thead>
+<tr>
+<th><strong>是否能重排序</strong></th>
+<th><em>第二个操作</em></th>
+<th><em>第二个操作</em></th>
+<th><em>第二个操作</em></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><em>第一个操作</em></td>
+<td>普通读写</td>
+<td>volatile读</td>
+<td>volatile写</td>
+</tr>
+<tr>
+<td>普通读写</td>
+<td></td>
+<td></td>
+<td>No</td>
+</tr>
+<tr>
+<td>volatile读</td>
+<td>No</td>
+<td>No</td>
+<td>No</td>
+</tr>
+<tr>
+<td>volatile写</td>
+<td></td>
+<td>No</td>
+<td>No</td>
+</tr>
+</tbody>
+</table>
+<p>这个规则表明确规定了针对<code>volatile</code>域的读写和普通读写之间的重排序行为是否被允许，根据这个规则表，编译器就可以在生成字节码时，通过往指令序列中插入特定的内存屏障来禁止关于<code>volatile</code>域的特定类型的重排序行为。</p>
+<h3 id="内存屏障"><a href="#内存屏障" class="headerlink" title="内存屏障"></a>内存屏障</h3><p>内存屏障的含义在维基百科里定义如下：</p>
+<blockquote>
+<p><strong>内存屏障</strong>，也称<strong>内存栅栏</strong>，<strong>内存栅障</strong>，<strong>屏障指令</strong>等，是一类<a href="https://zh.wikipedia.org/wiki/%E5%90%8C%E6%AD%A5%E5%B1%8F%E9%9A%9C" target="_blank" rel="external">同步屏障</a>指令，是CPU或编译器在对内存随机访问的操作中的一个同步点，使得此点之前的所有读写操作都执行后才可以开始执行此点之后的操作。语义上，内存屏障之前的所有写操作都要写入内存；内存屏障之后的读操作都可以获得同步屏障之前的写操作的结果</p>
+</blockquote>
+<p>Java内存模型把内存屏障分为4类：</p>
+<ul>
+<li><strong>LoadLoad</strong>(<em>Load1;LoadLoad;Load2</em>)：确保Load1数据的装载先于Load2及后续装载指令的装载</li>
+<li><strong>StoreStore</strong>(<em>Store1;StoreStore;Store2</em>)：确保Store1数据对其他处理器可见(刷新到内存)先于Store2及 所有后续存储指令的存储</li>
+<li><strong>LoadStore</strong>(<em>Load1;LoadStore;Store2</em>)：确保Load1数据装载先于Store2及所有后续的存储指令刷新到内存</li>
+<li><strong>StoreLoad</strong>(<em>Store1;StoreLoad;Load2</em>)：确保Store1数据对其他处理变得可见(刷新到内存)先于Load2及所有后续装载指令的装载。使该屏障之前的所有内存访问指令(存储和装载指令)完成之后，才执行该屏障之后的内存访问指令。</li>
+</ul>
+<p>针对<code>volatile</code>域的读写会依据下表所示插入内存屏障：</p>
+<table>
+<thead>
+<tr>
+<th><strong>需要插入的屏障</strong></th>
+<th><em>第二个操作</em></th>
+<th><em>第二个操作</em></th>
+<th><em>第二个操作</em></th>
+<th><em>第二个操作</em></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><em>第一个操作</em></td>
+<td>普通读</td>
+<td>普通写</td>
+<td>volatile读</td>
+<td>volatile写</td>
+</tr>
+<tr>
+<td>普通读</td>
+<td></td>
+<td></td>
+<td></td>
+<td><code>LoadStore</code></td>
+</tr>
+<tr>
+<td>普通写</td>
+<td></td>
+<td></td>
+<td></td>
+<td><code>StoreStore</code></td>
+</tr>
+<tr>
+<td>volatile读</td>
+<td><code>LoadLoad</code></td>
+<td><code>LoadStore</code></td>
+<td><code>LoadLoad</code></td>
+<td><code>LoadStore</code></td>
+</tr>
+<tr>
+<td>volatile写</td>
+<td></td>
+<td></td>
+<td><code>StoreLoad</code></td>
+<td><code>StoreStore</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h2><p>至此，从<code>volatile</code>角度看去，整个因果线条已经相当明显。首先给出内存可见性的定义，进一步分析其可能引发的原因，从而转到了为解决内存可见性问题而提出的Java内存模型，结合<code>volatile</code>引出了该内存模型的核心概念：happens-before，随后分析组成<code>volatile</code>这条happens-before规则背后的重排序规则，最终以内存屏障概念收尾。本文并不强求面面俱到，而是以自己理解<code>volatile</code>的方式来讲诉其中的因果关系，个人感觉对于学习这一块的相关概念是一种比较好的思路，如果需要更深刻了解每一种概念，可以查看参考中的一些文档或者自行搜索。</p>
+<h2 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h2><p><a href="https://docs.oracle.com/javase/specs/jls/se8/html/jls-8.html#jls-8.3.1.4" target="_blank" rel="external">volatile Fields</a></p>
+<p><a href="https://docs.oracle.com/javase/specs/jls/se8/html/jls-17.html#jls-17.4" target="_blank" rel="external">Memory Model</a></p>
+<p><a href="http://gee.cs.oswego.edu/dl/jmm/cookbook.html" target="_blank" rel="external">The JSR-133 Cookbook for Compiler Writers</a></p>
+<p><a href="https://book.douban.com/subject/24722612/" target="_blank" rel="external">深入理解Java虚拟机</a></p>
+<p><a href="https://book.douban.com/subject/26591326/" target="_blank" rel="external">Java并发编程的艺术</a></p>
+<p><a href="https://zh.wikipedia.org/wiki/%E5%86%85%E5%AD%98%E5%B1%8F%E9%9A%9C" target="_blank" rel="external">内存屏障</a></p>
+</div></article><div class="tags"><a href="/tags/volatile/">volatile</a><a href="/tags/JUC/">JUC</a></div><div class="paginator"><a href="/2017/07/19/ThreadPoolExecutor-summary/" class="next"><span>Next</span><i class="iconfont icon-right"></i></a></div><section id="comments"><div id="disqus_thread"></div></section><script type="text/javascript">var disqus_config = function () {
+    this.page.url = 'https://lukaicheng.github.io/2017/07/23/Comprehend-volatile/';
+    this.page.identifier = '2017/07/23/Comprehend-volatile/';
+    this.page.title = 'Java并发基础--理解volatile';
+};
+(function() {
+var d = document, s = d.createElement('script');
+
+s.src = '//Your disqus ID.disqus.com/embed.js';
+
+s.setAttribute('data-timestamp', +new Date());
+(d.head || d.body).appendChild(s);
+})();</script></section><footer><div class="copyright"><p class="power">Powered by <a href="https://hexo.io/">Hexo</a> and Theme by <a href="https://github.com/ahonn/hexo-theme-even"> Even</a></p><p class="since">&copy;2017<span class="heart"><i class="iconfont icon-heart"></i></span><span class="author">Lucifer</span></p></div><label id="back2top"><i class="iconfont icon-up"></i></label></footer></div><script src="/js/zepto.min.js"></script><script src="/js/theme.js"></script></body></html>
