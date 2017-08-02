@@ -2,6 +2,20 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   
   <url>
+    <loc>https://lukaicheng.github.io/2017/08/02/HDFS-Basic-Notes/</loc>
+    
+    <lastmod>2017-08-02T03:08:30.959Z</lastmod>
+    
+  </url>
+  
+  <url>
+    <loc>https://lukaicheng.github.io/2017/07/29/Reading-ArrayBlockingQueue/</loc>
+    
+    <lastmod>2017-07-31T12:02:02.898Z</lastmod>
+    
+  </url>
+  
+  <url>
     <loc>https://lukaicheng.github.io/2017/07/27/ConcurrentHashMap-JDK7-comprehension/</loc>
     
     <lastmod>2017-07-27T04:09:00.271Z</lastmod>

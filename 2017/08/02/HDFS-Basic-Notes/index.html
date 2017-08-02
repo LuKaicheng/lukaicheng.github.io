@@ -1,0 +1,72 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="author" content="Lucifer"><meta name="description" content="引言HDFS(HadoopDistributeFileSystem)是一个开源的分布式文件系统，源自于Google公司在2003年发表的GFS论文，目前已经成为Hadoop生态圈的基石之一。它是一个高度容错性的系统，能检测和应对硬件故障，被设计可以部署在低成本的通用硬件上。"><meta name="keywords" content="Hadoop,HDFS"><title>HDFS学习总结(一)基本原理 · Way to architect</title><link rel="icon" href="/favicon.ico"><link rel="canonical" href="https://lukaicheng.github.io/2017/08/02/HDFS-Basic-Notes/"><link rel="alternate" href="/atom.xml" title="Way to architect"><link rel="stylesheet" href="/fonts/iconfont/iconfont.css"><link rel="stylesheet" href="/css/style.css"><script type="text/javascript">var _hmt = _hmt || [];
+(function() {
+  var hm = document.createElement("script");
+  hm.src = "//hm.baidu.com/hm.js?Your baidu Analytics ID";
+  var s = document.getElementsByTagName("script")[0]; 
+  s.parentNode.insertBefore(hm, s);
+})();
+</script><script type="text/javascript">(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+(i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+})(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+ga('create', 'Your Google Analytics ID', 'auto');
+ga('send', 'pageview');</script></head><body><div id="main"><header><a href="/." class="logo">Way to architect</a><ul class="nav"><li class="nav-link"><a href="/" target="_self">Home</a></li><li class="nav-link"><a href="/archives/" target="_self">Archives</a></li><li class="nav-link"><a href="/tags/" target="_self">Tags</a></li></ul></header><section id="container"><article class="post"><h1 class="post-title">HDFS学习总结(一)基本原理</h1><span class="post-time">Aug 2, 2017</span><div id="sidebar" class="post-sidebar"><h3 class="heading">Contents</h3><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#引言"><span class="toc-text">引言</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#基本架构"><span class="toc-text">基本架构</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#备份和机架感知"><span class="toc-text">备份和机架感知</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#写文件流程分析"><span class="toc-text">写文件流程分析</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#读文件流程分析"><span class="toc-text">读文件流程分析</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#回收站机制"><span class="toc-text">回收站机制</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#局限性"><span class="toc-text">局限性</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#参考"><span class="toc-text">参考</span></a></li></ol></div><div class="post-content"><h2 id="引言"><a href="#引言" class="headerlink" title="引言"></a>引言</h2><p>HDFS(<em>Hadoop Distribute File System</em>)是一个开源的分布式文件系统，源自于Google公司在2003年发表的<a href="https://research.google.com/archive/gfs.html" target="_blank" rel="external">GFS论文</a>，目前已经成为Hadoop生态圈的基石之一。它是一个高度容错性的系统，能检测和应对硬件故障，被设计可以部署在低成本的通用硬件上。它简化了文件的一致性模型，通过流式数据访问，提供了高吞吐量的数据访问，非常适合那些拥有大规模数据集的应用。</p>
+<a id="more"></a>
+<h2 id="基本架构"><a href="#基本架构" class="headerlink" title="基本架构"></a>基本架构</h2><p>HDFS整体架构如下所示(<em>参考官网提供的架构图片</em>)：</p>
+<p><img src="https://raw.githubusercontent.com/LuKaicheng/lukaicheng.github.io/hexo/source/images/hdfs/HDFS_Architecture.png" alt="HDFS整体架构"></p>
+<p>从图中不难发现，HDFS采用了<strong>主从</strong>模式的架构设计，包含一个<strong>NameNode</strong>和多个<strong>DataNode</strong>：</p>
+<ul>
+<li><strong>NameNode</strong>：名称节点作为主服务管理着整个文件系统的命名空间并接收处理客户端对文件的访问请求，它能执行打开、关闭、重命名文件和目录等操作，同时也决定数据块到数据节点的映射关系。它存储的元数据包括文件/目录名称及相对于其父目录的位置，文件和目录的所有权及权限，各个数据块的文件名，值得注意的是它并不存储每个数据块的位置。</li>
+<li><strong>DataNode</strong>：数据节点能够接收来自文件系统客户端的读写请求，另外根据名称节点的指示将会执行数据块的创建、删除和复制行为。当然，最主要的是它负责存储实际的组成文件的数据块数据。</li>
+</ul>
+<h2 id="备份和机架感知"><a href="#备份和机架感知" class="headerlink" title="备份和机架感知"></a>备份和机架感知</h2><p>每个存储在HDFS上的文件都会被分割为多个数据块(<strong><em>Block</em></strong>)，默认情况下一个数据块大小为128MB(<em>可以通过配置<strong>hdfs-size.xml</strong>的<strong>dfs.blocksize</strong>属性改变</em>)。在上一节曾提到，名称节点并不会保存每个数据块的位置，这是因为名称节点除了会接收数据节点发出的心跳包(<strong><em>Heartbeat</em></strong>)之外，还包括接收数据节点发出的数据块报告(<strong><em>BlockReport</em></strong>)，后者包含了数据节点上所有的数据块信息。</p>
+<p>由于HDFS被设计成高容错系统，为了防止节点故障，这些数据块都是有备份的(<em>默认配置的备份数量是3，当然应用程序也可以指定文件的备份数，这可以在文件创建的时候指定，也可以在创建之后改变</em>)。另外，对于备份副本的放置，HDFS引入了<strong>机架感知</strong>的概念，其目的是为了提升数据可靠性，可用性以及网络带宽利用率。假设备份数是3，这个策略可以这样理解：如果写入文件的客户端也是一个数据节点，那么第一个备份就会放在本机上否则会随机挑选一个数据节点；第二个副本会被存放在与第一个副本不同的远程机架的一个数据节点上；第三个副本会被存放在第二个备份的机架上的另一台数据节点上。</p>
+<h2 id="写文件流程分析"><a href="#写文件流程分析" class="headerlink" title="写文件流程分析"></a>写文件流程分析</h2><p>假设写入文件被划分成2个数据块，备份因子是3，且HDFS具备机架感知功能，先放图：</p>
+<p><img src="https://raw.githubusercontent.com/LuKaicheng/lukaicheng.github.io/hexo/source/images/hdfs/HDFS_Write_Process.png" alt="HDFS读文件流程"></p>
+<p>现在结合上图大致描述一下整个流程：</p>
+<p>一、当客户端希望向HDFS写入文件，一开始是先将文件数据流式读入到本地文件系统中的一个临时文件，当文件数据大小达到一个数据块大小时，客户端才联系名称节点。</p>
+<p>二、名称节点收到请求之后，会在HDFS文件系统的层级结构中创建一个文件，然后把数据块的标识符和数据节点的位置信息发送给客户端：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div></pre></td><td class="code"><pre><div class="line">Block1: DN1,DN3,DN4</div><div class="line">Block2: DN5,DN8,DN7</div></pre></td></tr></table></figure>
+<p>三、客户端收到数据块信息之后，那么将开始向数据节点发送数据包：</p>
+<ol>
+<li>客户端首先尝试发送Block1到DN1，Block1会被划分成更小的数据包发送给DN1</li>
+<li>当DN1接收到第一个数据包并写入到本地存储之后，它会将数据包传送给DN3</li>
+<li>当DN3接收到数据包并将其写入本地存储之后，它会发送给第三个数据节点DN4</li>
+<li>最终，DN4会将数据包写入到本地存储，这样文件数据最终以管道的方式保存并备份</li>
+<li>当数据包保存成功之后，会反向沿着数据管道返回确认消息(ACK)</li>
+<li>当Block1发送成功之后，客户端继续发送Block2，过程类似</li>
+</ol>
+<p>四、客户端收到数据块保存成功的确认，客户端会发送最终的确认信息给名称节点。最终当文件被关闭时，名称节点会执行一个提交操作，从而使得该文件在集群中为可见状态。</p>
+<p>通过整个过程，我们可以意识到：</p>
+<ul>
+<li>写1T文件，需要3T的存储，3T的网络流量带宽。</li>
+<li>在整个写过程中，名称节点和数据节点通过HeartBeat保持通信，一旦发现数据节点故障，感知到文件数据没有备份完成，就会重新执行备份，把数据备份到状态良好的节点。</li>
+</ul>
+<h2 id="读文件流程分析"><a href="#读文件流程分析" class="headerlink" title="读文件流程分析"></a>读文件流程分析</h2><p>以上一节为基础，再放一张关于读文件的示意图：</p>
+<p><img src="https://raw.githubusercontent.com/LuKaicheng/lukaicheng.github.io/hexo/source/images/hdfs/HDFS_Read_Process.png" alt="HDFS写文件流程"></p>
+<p>结合上图简要分析一下读文件的大致流程：</p>
+<p>一、客户端会先向名称节点发送读文件请求。</p>
+<p>二、名称节点收到请求之后，会返回组成文件的数据块列表及数据块的位置(包括备份数据块的位置)：  </p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><div class="line">1</div><div class="line">2</div></pre></td><td class="code"><pre><div class="line">Block1: DN1,DN3,DN4</div><div class="line">Block2: DN5,DN8,DN7</div></pre></td></tr></table></figure>
+<p>三、客户端收到数据块信息之后，可以直接访问数据节点获取组成文件的各个数据块，首先从DN1节点获取Block1，然后从DN5节点获取Block5。如果访问的数据节点发生故障或者在计算数据块校验和的时候校验失败，那么会访问存放备份数据块的数据节点(<em>比如DN1发生问题，那么会从DN3获取Block1</em>)。</p>
+<h2 id="回收站机制"><a href="#回收站机制" class="headerlink" title="回收站机制"></a>回收站机制</h2><p>HDFS提供了一种回收站的机制，针对意外的删除行为，它给予了用户一次反悔的机会，主要的运行机制大概是这样的：当用户删除文件之后，首先会被移动到<strong>/user/{username}/.Trash/Current/</strong>目录，并且它的原始文件系统路径会被保留，经过一段可配置的时间(<em>通过属性<strong>fs.trash.interval</strong>配置</em>)之后，回收站检查进程会将<strong>Current</strong>目录根据当前时间重命名为<strong>/user/{username}/.Trash/{current_timestamp}/</strong>，并且查找过往检查点的<strong>timestamp</strong>目录，并删除过期的目录，只有到这一步，名称节点才会将文件从命名空间删除，并释放该文件相关的数据块，随后HDFS系统会显示增加了一些空闲空间。</p>
+<h2 id="局限性"><a href="#局限性" class="headerlink" title="局限性"></a>局限性</h2><p>通过上面的分析中不难看出，名称节点扮演着非常关键的角色，可以说整个HDFS都是围绕着它来运转。正因为如此，在hadoop1.x系统中，名称节点很容易成为单点故障，从而导致整个集群处于不可用状态。另外，由于名称节点维护了整个系统的命名空间，它要负责存储所有的元数据信息，即使HDFS针对的是大文件，随着集群规模和所存储文件的增加，命名节点的容量也将成为整个集群的瓶颈。因此，hadoop2.x在高可用和扩展性这两个方面提出了针对性的补充，这些就留待下一篇再进行总结。</p>
+<h2 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h2><p><a href="https://book.douban.com/subject/26684358/" target="_blank" rel="external">深入理解Hadoop</a></p>
+<p><a href="https://hadoop.apache.org/docs/r2.7.2/hadoop-project-dist/hadoop-hdfs/HdfsDesign.html" target="_blank" rel="external">HDFS Architecture</a></p>
+<p><a href="https://hadoop.apache.org/docs/current/hadoop-project-dist/hadoop-common/RackAwareness.html" target="_blank" rel="external">Rack Awareness</a></p>
+<p><a href="http://www.cnblogs.com/laov/p/3434917.html" target="_blank" rel="external">HDFS运行原理</a></p>
+<p><a href="https://www.cloudera.com/documentation/enterprise/5-7-x/topics/cm_mc_config_trash.html" target="_blank" rel="external">Configuring HDFS Trash</a></p>
+</div></article><div class="tags"><a href="/tags/Hadoop/">Hadoop</a><a href="/tags/HDFS/">HDFS</a></div><div class="paginator"><a href="/2017/07/29/Reading-ArrayBlockingQueue/" class="next"><span>Next</span><i class="iconfont icon-right"></i></a></div><section id="comments"><div id="disqus_thread"></div></section><script type="text/javascript">var disqus_config = function () {
+    this.page.url = 'https://lukaicheng.github.io/2017/08/02/HDFS-Basic-Notes/';
+    this.page.identifier = '2017/08/02/HDFS-Basic-Notes/';
+    this.page.title = 'HDFS学习总结(一)基本原理';
+};
+(function() {
+var d = document, s = d.createElement('script');
+
+s.src = '//Your disqus ID.disqus.com/embed.js';
+
+s.setAttribute('data-timestamp', +new Date());
+(d.head || d.body).appendChild(s);
+})();</script></section><footer><div class="copyright"><p class="power">Powered by <a href="https://hexo.io/">Hexo</a> and Theme by <a href="https://github.com/ahonn/hexo-theme-even"> Even</a></p><p class="since">&copy;2017<span class="heart"><i class="iconfont icon-heart"></i></span><span class="author">Lucifer</span></p></div><label id="back2top"><i class="iconfont icon-up"></i></label></footer></div><script src="/js/zepto.min.js"></script><script src="/js/theme.js"></script></body></html>
