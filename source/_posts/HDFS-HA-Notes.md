@@ -1,5 +1,5 @@
 ---
-title: HDFS学习总结(二)高可用
+title: HDFS学习总结之高可用
 date: 2017-08-09 16:35:01
 tags:
 - Hadoop
@@ -8,7 +8,7 @@ tags:
 
 ## 引言
 
-在上一篇[HDFS学习总结(一)基本原理](https://lukaicheng.github.io/2017/08/02/HDFS-Basic-Notes/)的最后提到，由于名称节点容易成为整个HDFS系统的单点故障，这极大限制了hadoop系统在生产环境的使用场景。在hadoop1.x中，虽然有所谓的**Secondary NameNode**，然而对于它的定位仅仅只是**NameNode**的辅助者，严格来讲连冷备都算不上。幸运的是，在hadoop2.x版本里，经过多次迭代和发展，对于HDFS来说终于有了一套较为成熟可靠的高可用方案：**QJM**(*Quorum Journal Manager*)。本文将以此为中心，梳理和总结HDFS高可用的相关知识。
+在上一篇[HDFS学习总结之基本原理](https://lukaicheng.github.io/2017/08/02/HDFS-Basic-Notes/)的最后提到，由于名称节点容易成为整个HDFS系统的单点故障，这极大限制了hadoop系统在生产环境的使用场景。在hadoop1.x中，虽然有所谓的**Secondary NameNode**，然而对于它的定位仅仅只是**NameNode**的辅助者，严格来讲连冷备都算不上。幸运的是，在hadoop2.x版本里，经过多次迭代和发展，对于HDFS来说终于有了一套较为成熟可靠的高可用方案：**QJM**(*Quorum Journal Manager*)。本文将以此为中心，梳理和总结HDFS高可用的相关知识。
 
 <!-- more -->
 

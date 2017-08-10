@@ -1,5 +1,5 @@
 ---
-title: HDFS学习总结(一)基本原理
+title: HDFS学习总结之基本原理
 date: 2017-08-02 11:08:08
 tags:
 - Hadoop
