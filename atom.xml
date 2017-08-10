@@ -5,7 +5,7 @@
   <link href="/atom.xml" rel="self"/>
   
   <link href="https://lukaicheng.github.io/"/>
-  <updated>2017-08-09T08:35:09.822Z</updated>
+  <updated>2017-08-10T08:37:00.976Z</updated>
   <id>https://lukaicheng.github.io/</id>
   
   <author>
@@ -16,13 +16,13 @@
   <generator uri="http://hexo.io/">Hexo</generator>
   
   <entry>
-    <title>HDFS学习总结(二)高可用</title>
+    <title>HDFS学习总结之高可用</title>
     <link href="https://lukaicheng.github.io/2017/08/09/HDFS-HA-Notes/"/>
     <id>https://lukaicheng.github.io/2017/08/09/HDFS-HA-Notes/</id>
     <published>2017-08-09T08:35:01.000Z</published>
-    <updated>2017-08-09T08:35:09.822Z</updated>
+    <updated>2017-08-10T08:37:00.976Z</updated>
     
-    <content type="html"><![CDATA[<h2 id="引言"><a href="#引言" class="headerlink" title="引言"></a>引言</h2><p>在上一篇<a href="https://lukaicheng.github.io/2017/08/02/HDFS-Basic-Notes/">HDFS学习总结(一)基本原理</a>的最后提到，由于名称节点容易成为整个HDFS系统的单点故障，这极大限制了hadoop系统在生产环境的使用场景。在hadoop1.x中，虽然有所谓的<strong>Secondary NameNode</strong>，然而对于它的定位仅仅只是<strong>NameNode</strong>的辅助者，严格来讲连冷备都算不上。幸运的是，在hadoop2.x版本里，经过多次迭代和发展，对于HDFS来说终于有了一套较为成熟可靠的高可用方案：<strong>QJM</strong>(<em>Quorum Journal Manager</em>)。本文将以此为中心，梳理和总结HDFS高可用的相关知识。</p>
+    <content type="html"><![CDATA[<h2 id="引言"><a href="#引言" class="headerlink" title="引言"></a>引言</h2><p>在上一篇<a href="https://lukaicheng.github.io/2017/08/02/HDFS-Basic-Notes/">HDFS学习总结之基本原理</a>的最后提到，由于名称节点容易成为整个HDFS系统的单点故障，这极大限制了hadoop系统在生产环境的使用场景。在hadoop1.x中，虽然有所谓的<strong>Secondary NameNode</strong>，然而对于它的定位仅仅只是<strong>NameNode</strong>的辅助者，严格来讲连冷备都算不上。幸运的是，在hadoop2.x版本里，经过多次迭代和发展，对于HDFS来说终于有了一套较为成熟可靠的高可用方案：<strong>QJM</strong>(<em>Quorum Journal Manager</em>)。本文将以此为中心，梳理和总结HDFS高可用的相关知识。</p>
 <a id="more"></a>
 <h2 id="元数据"><a href="#元数据" class="headerlink" title="元数据"></a>元数据</h2><p>众所周知，名称节点管理了整个HDFS系统的元数据信息，在运行期间，元数据信息在内存中不断更新，为了防止数据丢失，这些数据操作记录会被到<strong>EditLog</strong>文件中，辅助节点(<em>Secondary NameNode</em>)会帮助名称节点定时将产生的<strong>EditLog</strong>文件合并到<strong>FsImage</strong>文件，其中元数据存储目录结构如下图所示：</p>
 <p><img src="https://raw.githubusercontent.com/LuKaicheng/lukaicheng.github.io/hexo/source/images/hdfs/HDFS_NN_Metadata.png" alt="HDFS名称节点元数据存储目录结构"></p>
@@ -77,7 +77,7 @@
     
     <summary type="html">
     
-      &lt;h2 id=&quot;引言&quot;&gt;&lt;a href=&quot;#引言&quot; class=&quot;headerlink&quot; title=&quot;引言&quot;&gt;&lt;/a&gt;引言&lt;/h2&gt;&lt;p&gt;在上一篇&lt;a href=&quot;https://lukaicheng.github.io/2017/08/02/HDFS-Basic-Notes/&quot;&gt;HDFS学习总结(一)基本原理&lt;/a&gt;的最后提到，由于名称节点容易成为整个HDFS系统的单点故障，这极大限制了hadoop系统在生产环境的使用场景。在hadoop1.x中，虽然有所谓的&lt;strong&gt;Secondary NameNode&lt;/strong&gt;，然而对于它的定位仅仅只是&lt;strong&gt;NameNode&lt;/strong&gt;的辅助者，严格来讲连冷备都算不上。幸运的是，在hadoop2.x版本里，经过多次迭代和发展，对于HDFS来说终于有了一套较为成熟可靠的高可用方案：&lt;strong&gt;QJM&lt;/strong&gt;(&lt;em&gt;Quorum Journal Manager&lt;/em&gt;)。本文将以此为中心，梳理和总结HDFS高可用的相关知识。&lt;/p&gt;
+      &lt;h2 id=&quot;引言&quot;&gt;&lt;a href=&quot;#引言&quot; class=&quot;headerlink&quot; title=&quot;引言&quot;&gt;&lt;/a&gt;引言&lt;/h2&gt;&lt;p&gt;在上一篇&lt;a href=&quot;https://lukaicheng.github.io/2017/08/02/HDFS-Basic-Notes/&quot;&gt;HDFS学习总结之基本原理&lt;/a&gt;的最后提到，由于名称节点容易成为整个HDFS系统的单点故障，这极大限制了hadoop系统在生产环境的使用场景。在hadoop1.x中，虽然有所谓的&lt;strong&gt;Secondary NameNode&lt;/strong&gt;，然而对于它的定位仅仅只是&lt;strong&gt;NameNode&lt;/strong&gt;的辅助者，严格来讲连冷备都算不上。幸运的是，在hadoop2.x版本里，经过多次迭代和发展，对于HDFS来说终于有了一套较为成熟可靠的高可用方案：&lt;strong&gt;QJM&lt;/strong&gt;(&lt;em&gt;Quorum Journal Manager&lt;/em&gt;)。本文将以此为中心，梳理和总结HDFS高可用的相关知识。&lt;/p&gt;
     
     </summary>
     
@@ -89,11 +89,11 @@
   </entry>
   
   <entry>
-    <title>HDFS学习总结(一)基本原理</title>
+    <title>HDFS学习总结之基本原理</title>
     <link href="https://lukaicheng.github.io/2017/08/02/HDFS-Basic-Notes/"/>
     <id>https://lukaicheng.github.io/2017/08/02/HDFS-Basic-Notes/</id>
     <published>2017-08-02T03:08:08.000Z</published>
-    <updated>2017-08-02T03:08:30.959Z</updated>
+    <updated>2017-08-10T08:36:11.005Z</updated>
     
     <content type="html"><![CDATA[<h2 id="引言"><a href="#引言" class="headerlink" title="引言"></a>引言</h2><p>HDFS(<em>Hadoop Distribute File System</em>)是一个开源的分布式文件系统，源自于Google公司在2003年发表的<a href="https://research.google.com/archive/gfs.html" target="_blank" rel="external">GFS论文</a>，目前已经成为Hadoop生态圈的基石之一。它是一个高度容错性的系统，能检测和应对硬件故障，被设计可以部署在低成本的通用硬件上。它简化了文件的一致性模型，通过流式数据访问，提供了高吞吐量的数据访问，非常适合那些拥有大规模数据集的应用。</p>
 <a id="more"></a>
